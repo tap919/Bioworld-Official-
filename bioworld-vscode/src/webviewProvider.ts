@@ -719,32 +719,66 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     }
 
     // ── Outpost helpers ───────────────────────────────────────
+    function validateUrl(url) {
+      try {
+        const parsed = new URL(String(url));
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          return parsed.toString();
+        }
+      } catch {
+        // ignore parse errors
+      }
+      return null;
+    }
+
     function appendOutpost(outpost) {
       const el = document.getElementById('outposts');
       if (!el) return;
+
       const d = document.createElement('div');
       d.className = 'outpost-item';
-      d.innerHTML =
-        '<span class="outpost-icon">' + esc(outpost.icon || '🏕️') + '</span>' +
-        '<div class="outpost-body">' +
-        '<div class="outpost-nm">' + esc(outpost.name) + '</div>' +
-        '<div class="outpost-desc">' + esc(outpost.desc || '') + '</div></div>' +
-        (outpost.url ? '<a class="btn sm" href="' + esc(outpost.url) + '" target="_blank">Visit →</a>' : '');
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'outpost-icon';
+      iconSpan.textContent = outpost.icon || '🏕️';
+      d.appendChild(iconSpan);
+
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'outpost-body';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'outpost-nm';
+      nameDiv.textContent = outpost.name;
+      bodyDiv.appendChild(nameDiv);
+
+      const descDiv = document.createElement('div');
+      descDiv.className = 'outpost-desc';
+      descDiv.textContent = outpost.desc || '';
+      bodyDiv.appendChild(descDiv);
+
+      d.appendChild(bodyDiv);
+
+      if (outpost.url) {
+        const safeUrl = validateUrl(outpost.url);
+        if (safeUrl) {
+          const link = document.createElement('a');
+          link.className = 'btn sm';
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.href = safeUrl;
+          link.textContent = 'Visit →';
+          d.appendChild(link);
+        }
+      }
+
       el.appendChild(d);
     }
 
     function renderOutposts(outposts) {
       const el = document.getElementById('outposts');
       if (!el || !Array.isArray(outposts)) return;
-      el.innerHTML = outposts.map(o =>
-        '<div class="outpost-item">' +
-        '<span class="outpost-icon">' + esc(o.icon || '🏕️') + '</span>' +
-        '<div class="outpost-body">' +
-        '<div class="outpost-nm">' + esc(o.name) + '</div>' +
-        '<div class="outpost-desc">' + esc(o.desc || '') + '</div></div>' +
-        (o.url ? '<a class="btn sm" href="' + esc(o.url) + '" target="_blank">Visit →</a>' : '') +
-        '</div>'
-      ).join('');
+      el.innerHTML = '';
+      outposts.forEach(o => appendOutpost(o));
     }
 
     // ── Faction helpers ───────────────────────────────────────
