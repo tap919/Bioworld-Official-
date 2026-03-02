@@ -71,10 +71,10 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     #chat { max-height: 200px; overflow-y: auto; border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 6px; margin-top: 8px; }
     #experimentLog { max-height: 160px; overflow-y: auto; border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 6px; margin-top: 8px; font-size: 0.85em; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; margin-left: 6px; font-weight: bold; }
-    .badge-beginner { background: #2d6a2d; color: #90ee90; }
-    .badge-intermediate { background: #6a5c00; color: #ffd700; }
-    .badge-advanced { background: #6a1a00; color: #ff7043; }
-    .badge-expert { background: #3a006a; color: #ce93d8; }
+    .badge-beginner { color: var(--vscode-editorInfo-foreground); border: 1px solid var(--vscode-editorInfo-foreground); background: transparent; }
+    .badge-intermediate { color: var(--vscode-editorHint-foreground); border: 1px solid var(--vscode-editorHint-foreground); background: transparent; }
+    .badge-advanced { color: var(--vscode-editorWarning-foreground); border: 1px solid var(--vscode-editorWarning-foreground); background: transparent; }
+    .badge-expert { color: var(--vscode-editorError-foreground); border: 1px solid var(--vscode-editorError-foreground); background: transparent; }
     .hidden { display: none; }
   </style>
 </head>
