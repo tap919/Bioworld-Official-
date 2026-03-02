@@ -110,6 +110,13 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       }
     }
 
+    // ── Sanitization helper
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = String(str);
+      return d.innerHTML;
+    }
+
     // ── Dashboard helpers
     function appendChat(text) {
       const el = document.getElementById('chat');
@@ -122,7 +129,7 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     function updateLeaderboard(ranks) {
       const el = document.getElementById('leaderboard');
       if (!el || !Array.isArray(ranks)) return;
-      el.innerHTML = ranks.map((r, i) => '<li>' + (i+1) + '. ' + r.name + ' — ' + r.xp + ' XP</li>').join('');
+      el.innerHTML = ranks.map((r, i) => '<li>' + (i+1) + '. ' + esc(r.name) + ' — ' + esc(r.xp) + ' XP</li>').join('');
     }
 
     // ── Marketplace helpers
@@ -130,8 +137,11 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       const el = document.getElementById('listings');
       if (!el || !Array.isArray(listings)) return;
       el.innerHTML = listings.map(l =>
-        '<div class="card"><strong>' + l.name + '</strong><br>' + l.description + '<br>' + l.price + ' credits<br><button class="btn" onclick="sendToHost(\\'buyTool\\',{listingId:\\'' + l.id + '\\'})">Buy</button></div>'
+        '<div class="card"><strong>' + esc(l.name) + '</strong><br>' + esc(l.description) + '<br>' + esc(l.price) + ' credits<br><button class="btn" data-id="' + esc(l.id) + '">Buy</button></div>'
       ).join('');
+      el.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => sendToHost('buyTool', { listingId: btn.dataset.id }));
+      });
     }
 
     // ── Agent helpers
@@ -139,7 +149,7 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       const el = document.getElementById('myAgents');
       if (!el || !Array.isArray(agents)) return;
       el.innerHTML = agents.map(a =>
-        '<div class="card"><strong>' + a.name + '</strong><br>Status: ' + (a.fitted ? 'Active ✅' : 'Fitting…') + '</div>'
+        '<div class="card"><strong>' + esc(a.name) + '</strong><br>Status: ' + (a.fitted ? 'Active ✅' : 'Fitting…') + '</div>'
       ).join('');
     }
   </script>
@@ -152,8 +162,13 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       case 'joinLab':
         this.socket?.emit('joinLab', { labId: msg.labId });
         break;
-      case 'sendChat':
-        this.socket?.emit('chatMessage', { text: msg.text });
+      case 'sendChat': {
+        const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, 2000) : '';
+        if (text) {
+          this.socket?.emit('chatMessage', { text });
+        }
+        break;
+      }
         break;
       case 'buyTool':
         this.socket?.emit('buyTool', { listingId: msg.listingId });

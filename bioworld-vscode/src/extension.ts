@@ -6,7 +6,7 @@ let socket: Socket | null = null;
 
 export function activate(context: vscode.ExtensionContext): void {
   const config = vscode.workspace.getConfiguration('bioworld');
-  const socketUrl = config.get<string>('serverUrl') || 'wss://bioworld.example.com';
+  const socketUrl = config.get<string>('serverUrl') || 'wss://bioworld.yourdomain.com';
 
   const providers = new Map<string, BioWorldWebviewProvider>();
 
@@ -34,6 +34,9 @@ export function activate(context: vscode.ExtensionContext): void {
       socket.on('disconnect', () => {
         vscode.window.showInformationMessage('BioWorld: Disconnected.');
       });
+      socket.on('connect_error', (err: Error) => {
+        vscode.window.showErrorMessage(`BioWorld: Connection failed — ${err.message}`);
+      });
 
       // Relay agent tasks to OpenClaw gateway
       socket.on('agentTask', async (task: { agentId: string; openclawUrl: string; payload: unknown }) => {
@@ -45,8 +48,9 @@ export function activate(context: vscode.ExtensionContext): void {
           });
           const result = await res.json();
           socket?.emit('agentResult', { agentId: task.agentId, result });
-        } catch (err) {
-          vscode.window.showErrorMessage(`Agent task failed: ${err}`);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          vscode.window.showErrorMessage(`Agent task failed: ${message}`);
         }
       });
 
