@@ -845,7 +845,14 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       if (tierEl) tierEl.textContent = data.tier || 'Citizen Scientist';
       if (descEl) descEl.textContent = data.desc || '';
       if (nextEl) nextEl.textContent = data.nextTier ? '→ ' + data.nextTier : '';
-      if (fillEl) fillEl.style.width = (data.progress || 0) + '%';
+      if (fillEl) {
+        var rawProgress = Number(data && data.progress);
+        if (!Number.isFinite(rawProgress)) {
+          rawProgress = 0;
+        }
+        var clampedProgress = Math.min(100, Math.max(0, rawProgress));
+        fillEl.style.width = clampedProgress + '%';
+      }
     }
   </script>
 </body>
