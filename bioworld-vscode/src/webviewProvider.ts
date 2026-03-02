@@ -1128,8 +1128,20 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     function logKnowledge(text) {
       var el = document.getElementById('knowledgeLog');
       if (!el) return;
-      var placeholder = el.querySelector('p[style*="italic"]');
-      if (placeholder) placeholder.remove();
+      // Prefer removing an explicit placeholder node marked via data attribute.
+      var placeholder = el.querySelector('p[data-placeholder="true"]');
+      // Backwards-compat: if no such node exists yet, detect the likely placeholder
+      // (an italic paragraph as the first element) and tag it.
+      if (!placeholder && el.firstElementChild instanceof HTMLElement) {
+        var first = el.firstElementChild;
+        if (first.tagName === 'P' && first.style && first.style.fontStyle === 'italic') {
+          first.setAttribute('data-placeholder', 'true');
+          placeholder = first;
+        }
+      }
+      if (placeholder && placeholder.parentNode === el) {
+        placeholder.remove();
+      }
       var p = document.createElement('p');
       p.style.cssText = 'color:var(--bio-green);padding:1px 0;border-bottom:1px solid var(--bio-border)';
       p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text;
