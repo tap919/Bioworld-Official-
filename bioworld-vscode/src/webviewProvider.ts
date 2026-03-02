@@ -69,6 +69,13 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     ul { list-style: none; padding: 0; }
     li { padding: 4px 0; }
     #chat { max-height: 200px; overflow-y: auto; border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 6px; margin-top: 8px; }
+    #experimentLog { max-height: 160px; overflow-y: auto; border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 6px; margin-top: 8px; font-size: 0.85em; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; margin-left: 6px; font-weight: bold; }
+    .badge-beginner { background: #2d6a2d; color: #90ee90; }
+    .badge-intermediate { background: #6a5c00; color: #ffd700; }
+    .badge-advanced { background: #6a1a00; color: #ff7043; }
+    .badge-expert { background: #3a006a; color: #ce93d8; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -90,6 +97,27 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       vscodeApi.postMessage({ cmd, ...data });
     }
 
+    // ── Panel-specific setup (runs after DOM ready)
+    (function initPanel() {
+      const runBtn = document.getElementById('runExpBtn');
+      if (runBtn) {
+        runBtn.addEventListener('click', () => {
+          const type = document.getElementById('expType')?.value || '';
+          const raw = document.getElementById('expParams')?.value || '{}';
+          const errEl = document.getElementById('expError');
+          let params;
+          try {
+            params = JSON.parse(raw);
+          } catch {
+            if (errEl) { errEl.textContent = 'Invalid JSON — please check the format.'; errEl.style.display = 'block'; }
+            return;
+          }
+          if (errEl) { errEl.style.display = 'none'; }
+          sendToHost('runExperiment', { type, params: JSON.stringify(params) });
+        });
+      }
+    })();
+
     function handleHostMessage(msg) {
       switch (msg.cmd) {
         case 'chatMessage':
@@ -106,6 +134,24 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
           break;
         case 'newInitiative':
           document.getElementById('initiativeForm')?.classList.toggle('hidden');
+          break;
+        case 'challengeUpdate':
+          renderChallenges(msg.challenges);
+          break;
+        case 'achievementUnlocked':
+          appendAchievement(msg.name, msg.xp);
+          break;
+        case 'showAchievements':
+          document.getElementById('achievementsSection')?.classList.remove('hidden');
+          break;
+        case 'skillRankUpdate':
+          updateSkillRank(msg.rank, msg.xp, msg.nextRank);
+          break;
+        case 'experimentStarted':
+          appendExperimentLog(msg.type, '⏳ Started:', '');
+          break;
+        case 'experimentResult':
+          appendExperimentLog(msg.type, '✅ Result:', JSON.stringify(msg.result));
           break;
       }
     }
@@ -152,6 +198,50 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         '<div class="card"><strong>' + esc(a.name) + '</strong><br>Status: ' + (a.fitted ? 'Active ✅' : 'Fitting…') + '</div>'
       ).join('');
     }
+
+    // ── Challenge helpers (skill-adaptive)
+    function renderChallenges(challenges) {
+      const el = document.getElementById('challenges');
+      if (!el || !Array.isArray(challenges)) return;
+      el.innerHTML = challenges.map(c =>
+        '<div class="card"><strong>' + esc(c.title) + '</strong>' +
+        '<span class="badge badge-' + esc(c.difficulty) + '">' + esc(c.difficulty) + '</span>' +
+        '<br>' + esc(c.description) + '<br>' +
+        '<em>' + esc(c.reward) + ' XP reward</em>' +
+        '<br><button class="btn" data-challenge-id="' + esc(c.id) + '">Accept</button></div>'
+      ).join('');
+      el.querySelectorAll('button[data-challenge-id]').forEach(btn => {
+        btn.addEventListener('click', () => sendToHost('acceptChallenge', { challengeId: btn.dataset.challengeId }));
+      });
+    }
+
+    // ── Achievement helpers
+    function appendAchievement(name, xp) {
+      const el = document.getElementById('achievements');
+      if (!el) return;
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = '🏆 <strong>' + esc(name) + '</strong>' + (xp ? ' +' + esc(xp) + ' XP' : '');
+      el.prepend(div);
+    }
+
+    // ── Skill rank helper
+    function updateSkillRank(rank, xp, nextRank) {
+      const el = document.getElementById('skillRank');
+      if (!el) return;
+      el.innerHTML = '<strong>' + esc(rank) + '</strong> · ' + esc(xp) + ' XP' +
+        (nextRank ? ' <span style="opacity:0.6">→ ' + esc(nextRank) + '</span>' : '');
+    }
+
+    // ── Experiment helpers
+    function appendExperimentLog(type, status, detail) {
+      const el = document.getElementById('experimentLog');
+      if (!el) return;
+      const p = document.createElement('p');
+      p.textContent = status + ' ' + type + (detail ? ': ' + detail : '');
+      el.appendChild(p);
+      el.scrollTop = el.scrollHeight;
+    }
   </script>
 </body>
 </html>`;
@@ -178,6 +268,12 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       case 'registerAgent':
         this.socket?.emit('registerAgent', msg);
         break;
+      case 'runExperiment':
+        this.socket?.emit('runExperiment', { type: msg.type, params: msg.params });
+        break;
+      case 'acceptChallenge':
+        this.socket?.emit('acceptChallenge', { challengeId: msg.challengeId });
+        break;
     }
   }
 }
@@ -190,8 +286,20 @@ function getViewContent(viewId: string): string {
       return /* html */ `
         <h1>🧬 BioWorld Dashboard</h1>
         <div class="card">
+          <h2>Your Rank</h2>
+          <div id="skillRank"><em>Connect to see your rank…</em></div>
+        </div>
+        <div class="card">
           <h2>Leaderboard</h2>
           <ul id="leaderboard"><li>Connect to see rankings</li></ul>
+        </div>
+        <div class="card">
+          <h2>🎯 Active Challenges <small style="font-size:0.75em;opacity:0.7">(adapts to your skill)</small></h2>
+          <div id="challenges"><em>Connect to load skill-matched challenges…</em></div>
+        </div>
+        <div id="achievementsSection" class="card hidden">
+          <h2>🏆 Achievements</h2>
+          <div id="achievements"><em>No achievements yet — start contributing!</em></div>
         </div>
         <div class="card">
           <h2>Lab Chat</h2>
@@ -202,7 +310,7 @@ function getViewContent(viewId: string): string {
             Send
           </button>
         </div>
-        <div id="initiativeForm" class="card hidden" style="display:none">
+        <div id="initiativeForm" class="card hidden">
           <h2>New Initiative</h2>
           <input id="initName" placeholder="Initiative name" />
           <textarea id="initDesc" rows="3" placeholder="Description…"></textarea>
@@ -253,6 +361,32 @@ function getViewContent(viewId: string): string {
           <div class="card">No agents registered yet</div>
         </div>
         <div id="labAgents" style="margin-top:8px"></div>`;
+
+    case 'experiments':
+      return /* html */ `
+        <h1>🧪 Experiments &amp; Simulations</h1>
+        <p style="font-size:0.9em;opacity:0.8">Run skill-adaptive biotech experiments. Harder challenges unlock as you progress.</p>
+        <div class="card">
+          <h2>Quick Launch</h2>
+          <select id="expType" style="width:100%;padding:6px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:4px;margin-bottom:6px">
+            <option>Mutation Analysis</option>
+            <option>Protein Folding Simulation</option>
+            <option>Drug Binding Prediction</option>
+            <option>Environmental Impact Model</option>
+            <option>Gene Expression Analysis</option>
+          </select>
+          <textarea id="expParams" rows="2" placeholder='Parameters JSON, e.g. {"gene":"BRCA1"}'></textarea>
+          <div id="expError" style="display:none;color:var(--vscode-errorForeground);font-size:0.85em;margin-top:4px"></div>
+          <button class="btn" id="runExpBtn" style="margin-top:6px">▶ Run Experiment</button>
+        </div>
+        <div class="card">
+          <h2>🎯 Skill-Adaptive Challenges</h2>
+          <div id="challenges"><em>Connect to load your challenges…</em></div>
+        </div>
+        <div class="card">
+          <h2>Experiment Log</h2>
+          <div id="experimentLog"><p><em>No experiments run yet.</em></p></div>
+        </div>`;
 
     default:
       return '<h1>🧬 BioWorld</h1><p>Welcome to the biotech IDE MMO.</p>';
