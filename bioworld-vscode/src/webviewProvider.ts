@@ -385,6 +385,45 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     .prog-info { flex: 1; min-width: 0; }
     .prog-tier { font-weight: 700; font-size: 0.88em; color: var(--bio-green); }
     .prog-sub  { font-size: 0.72em; opacity: 0.6; }
+
+    /* ── Learning paths ─────────────────────────────────── */
+    .learn-path {
+      padding: 8px 10px;
+      background: var(--bio-surface);
+      border: 1px solid var(--bio-border);
+      border-radius: var(--r);
+      margin-bottom: 5px;
+      transition: border-color 0.2s;
+    }
+    .learn-path:hover { border-color: var(--bio-border-hi); }
+    .path-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .path-icon { font-size: 1.2em; flex-shrink: 0; }
+    .path-info { flex: 1; min-width: 0; }
+    .path-nm { font-weight: 700; font-size: 0.85em; color: var(--bio-accent); }
+    .path-sub { font-size: 0.7em; opacity: 0.55; }
+    .path-modules { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+    /* ── Avatar picker ────────────────────────────────────── */
+    .avatar-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 7px; }
+    .avatar-opt {
+      width: 28px; height: 28px; font-size: 1.1em;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--bio-border); border-radius: var(--r);
+      cursor: pointer; background: var(--bio-surface); transition: all 0.15s;
+    }
+    .avatar-opt:hover, .avatar-opt.sel {
+      border-color: var(--bio-accent); background: var(--bio-surface2);
+      box-shadow: var(--bio-glow);
+    }
+
+    /* ── Color swatches ───────────────────────────────────── */
+    .color-swatch {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 3px 10px; border-radius: 4px; cursor: pointer;
+      font-size: 0.75em; font-weight: 700; border: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .color-swatch.on { border-color: var(--vscode-foreground) !important; }
   </style>
 </head>
 <body>
@@ -476,6 +515,92 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         const wantQty = parseInt(document.getElementById('tradeWantQty')?.value, 10);
         if (!qty || qty < 1 || !wantQty || wantQty < 1) return;
         sendToHost('offerTrade', { resource, qty, wantResource, wantQty });
+      });
+
+      // Profile form toggle
+      document.getElementById('toggleProfileBtn')?.addEventListener('click', function() {
+        const f = document.getElementById('profileForm');
+        if (!f) return;
+        f.classList.toggle('hidden');
+        this.textContent = f.classList.contains('hidden') ? '✏️ Edit' : '✕ Close';
+      });
+
+      // Avatar picker
+      document.querySelectorAll('.avatar-opt').forEach(function(opt) {
+        opt.addEventListener('click', function() {
+          document.querySelectorAll('.avatar-opt').forEach(function(o) { o.classList.remove('sel'); });
+          opt.classList.add('sel');
+          const av = document.getElementById('profileAvatar');
+          if (av) av.textContent = opt.dataset.avatar || '🔬';
+        });
+      });
+
+      // Save scientist profile
+      document.getElementById('saveProfileBtn')?.addEventListener('click', () => {
+        const name      = document.getElementById('profileNameInput')?.value?.trim() || '';
+        const specialty = document.getElementById('profileSpecialtyInput')?.value || '';
+        const bio       = document.getElementById('profileBioInput')?.value?.trim() || '';
+        const selOpt    = document.querySelector('.avatar-opt.sel');
+        const avatar    = (selOpt instanceof HTMLElement ? selOpt.dataset.avatar : null) || '🔬';
+        if (name) {
+          const nameEl = document.getElementById('profileName');
+          const specEl = document.getElementById('profileSpecialty');
+          const avEl   = document.getElementById('profileAvatar');
+          if (nameEl) nameEl.textContent = name;
+          if (specEl) specEl.textContent = specialty;
+          if (avEl)   avEl.textContent   = avatar;
+        }
+        sendToHost('updateProfile', { name, specialty, bio, avatar });
+        const msg = document.getElementById('profileSaveMsg');
+        if (msg) { msg.classList.remove('hidden'); setTimeout(function() { msg.classList.add('hidden'); }, 2500); }
+      });
+
+      // Lab settings toggle
+      document.getElementById('toggleLabSettingsBtn')?.addEventListener('click', function() {
+        const f = document.getElementById('labSettingsForm');
+        if (!f) return;
+        f.classList.toggle('hidden');
+        this.textContent = f.classList.contains('hidden') ? '✏️ Customize' : '✕ Close';
+      });
+
+      // Lab color swatches
+      document.getElementById('labColorPicker')?.addEventListener('click', function(e) {
+        const btn = e.target instanceof HTMLElement ? e.target.closest('.color-swatch') : null;
+        if (!btn) return;
+        document.querySelectorAll('#labColorPicker .color-swatch').forEach(function(b) { b.classList.remove('on'); });
+        btn.classList.add('on');
+      });
+
+      // Save lab settings
+      document.getElementById('saveLabBtn')?.addEventListener('click', () => {
+        const name  = document.getElementById('labNameInput')?.value?.trim() || '';
+        const focus = document.getElementById('labFocusInput')?.value || '';
+        const desc  = document.getElementById('labDescInput')?.value?.trim() || '';
+        const selSwatch = document.querySelector('#labColorPicker .color-swatch.on');
+        const color = (selSwatch instanceof HTMLElement ? selSwatch.dataset.color : null) || '#00e5cc';
+        sendToHost('customizeLab', { name, focus, desc, color });
+        const msg = document.getElementById('labSaveMsg');
+        if (msg) { msg.classList.remove('hidden'); setTimeout(function() { msg.classList.add('hidden'); }, 2500); }
+      });
+
+      // Article study buttons (learning center)
+      document.querySelectorAll('.pb[data-article]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          openArticle(btn instanceof HTMLElement ? (btn.dataset.article || '') : '');
+        });
+      });
+
+      // Close article viewer
+      document.getElementById('closeArticleBtn')?.addEventListener('click', () => {
+        const viewer = document.getElementById('articleViewer');
+        if (viewer) viewer.style.display = 'none';
+      });
+
+      // Mark article as studied
+      document.getElementById('markStudiedBtn')?.addEventListener('click', () => {
+        const btn = document.getElementById('markStudiedBtn');
+        const id  = btn instanceof HTMLElement ? (btn.dataset.articleId || '') : '';
+        markArticleStudied(id);
       });
     })();
 
@@ -601,6 +726,8 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         case 'tradeComplete':       logTrade(msg); break;
         case 'inventoryUpdate':     renderInventory(msg.inventory); break;
         case 'progressionUpdate':   renderProgression(msg); break;
+        case 'learningUpdate':      renderLearningPaths(msg); break;
+        case 'knowledgeGained':     logKnowledge('🌟 ' + esc(msg.topic || 'Knowledge gained') + (msg.xp ? ' (+' + esc(msg.xp) + ' XP)' : '')); break;
         case 'explore':             logLine('🗺️ Exploring the world…'); break;
       }
     }
@@ -913,6 +1040,101 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         fillEl.style.width = clampedProgress + '%';
       }
     }
+
+    // ── Learning center helpers ───────────────────────────────
+    var ARTICLES = {
+      'intro-biotech': {
+        title: '🧬 Introduction to Biotechnology',
+        content: 'Biotechnology harnesses cellular and molecular processes to develop technologies that improve lives. Modern biotech spans medicine, agriculture, environmental science, and industrial processes.\n\nKey branches: genomics, proteomics, metabolomics, synthetic biology, and bioinformatics. BioWorld focuses on the computational side — where code meets molecules.'
+      },
+      'dna-basics': {
+        title: '🔬 DNA Structure & Function',
+        content: 'DNA (deoxyribonucleic acid) is the hereditary material in humans and most organisms. The double helix is composed of nucleotide base pairs: Adenine–Thymine and Guanine–Cytosine.\n\nGenes are segments of DNA encoding proteins. Central dogma: DNA → RNA → Protein. Understanding this flow is fundamental to all genetic engineering and therapeutics.'
+      },
+      'crispr-history': {
+        title: '📜 CRISPR: A Brief History',
+        content: 'CRISPR sequences were first described in E. coli in 1987. Their role as a bacterial immune system was elucidated in the 2000s.\n\nIn 2012, Jennifer Doudna and Emmanuelle Charpentier showed CRISPR-Cas9 could be programmed to cut specific DNA sequences. They received the 2020 Nobel Prize in Chemistry for this discovery.'
+      },
+      'cas9-mechanism': {
+        title: '🔧 Cas9 Mechanism of Action',
+        content: 'Cas9 is an RNA-guided endonuclease. A guide RNA (gRNA) directs Cas9 to a target sequence adjacent to a PAM (5\'-NGG-3\' for SpCas9).\n\nCas9 creates a double-strand break (DSB). The cell repairs via NHEJ (insertions/deletions) or HDR (precise editing with a template). This enables targeted genome modification.'
+      },
+      'guide-rna': {
+        title: '🎯 Guide RNA Design',
+        content: 'Effective gRNA design is critical for CRISPR efficiency and specificity:\n\n• GC content: 40–70% optimal\n• Avoid poly-T (>4T terminates Pol III transcription)\n• Seed region (10–12 nt adjacent to PAM) must be highly specific\n• Check secondary structure — avoid strong self-complementarity\n• Use off-target prediction tools (Cas-OFFinder, CRISPOR)'
+      },
+      'off-target': {
+        title: '⚠️ Off-target Effects in CRISPR',
+        content: 'Off-target editing occurs when Cas9 cleaves sequences with partial complementarity to the gRNA. This is a major safety concern for therapeutic applications.\n\nMitigation strategies:\n• High-fidelity Cas9 variants (eSpCas9, HiFi Cas9)\n• Truncated gRNAs (17–18 nt)\n• Paired nickases (D10A mutant)\n• Base editors for single-nucleotide changes\n• Whole-genome profiling (GUIDE-seq, CIRCLE-seq)'
+      },
+      'seq-technologies': {
+        title: '🧬 DNA Sequencing Technologies',
+        content: 'Sanger (1st gen) enabled the Human Genome Project. Illumina NGS (2nd gen) delivers high-throughput short reads cost-effectively.\n\nLong-read platforms (PacBio SMRT, Oxford Nanopore) sequence single molecules in real time, resolving structural variants and repetitive regions. Choose based on read length, accuracy, and throughput requirements.'
+      },
+      'variant-calling': {
+        title: '📊 Variant Calling Pipeline',
+        content: 'Standard variant calling steps:\n\n1. Alignment (BWA-MEM or STAR for RNA)\n2. Duplicate marking (Picard MarkDuplicates)\n3. Base quality recalibration (GATK BQSR)\n4. Variant calling (GATK HaplotypeCaller or DeepVariant)\n5. Genotype refinement & filtering\n6. Functional annotation (ANNOVAR, Ensembl VEP)\n\nQC thresholds: DP ≥ 10, GQ ≥ 20, VAF ≥ 0.2 for somatic calls.'
+      }
+    };
+
+    function openArticle(id) {
+      var article = ARTICLES[id];
+      if (!article) return;
+      var viewer  = document.getElementById('articleViewer');
+      var title   = document.getElementById('articleTitle');
+      var content = document.getElementById('articleContent');
+      var studyBtn = document.getElementById('markStudiedBtn');
+      if (!viewer || !title || !content) return;
+      title.textContent = article.title;
+      // Render content safely using DOM manipulation (no innerHTML with user data)
+      content.textContent = '';
+      article.content.split('\n').forEach(function(line, i) {
+        if (i > 0) { content.appendChild(document.createElement('br')); }
+        content.appendChild(document.createTextNode(line));
+      });
+      if (studyBtn instanceof HTMLElement) studyBtn.dataset.articleId = id;
+      viewer.style.display = 'block';
+      viewer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function markButtonAsStudied(btn) {
+      if (!btn || btn.dataset.studied === 'true') return;
+      btn.dataset.studied = 'true';
+      btn.classList.add('on');
+      btn.textContent = '✅ ' + btn.textContent;
+    }
+
+    function markArticleStudied(id) {
+      if (!id) return;
+      sendToHost('studyArticle', { articleId: id });
+      var btn = document.querySelector('.pb[data-article="' + id + '"]');
+      if (btn instanceof HTMLElement) markButtonAsStudied(btn);
+      logKnowledge('📖 Studied: ' + ((ARTICLES[id] && ARTICLES[id].title) || id) + ' (+50 XP)');
+      var viewer = document.getElementById('articleViewer');
+      if (viewer) viewer.style.display = 'none';
+    }
+
+    function renderLearningPaths(data) {
+      if (!data || !data.progress) return;
+      var progress = data.progress;
+      Object.keys(progress).forEach(function(id) {
+        if (progress[id]) {
+          var btn = document.querySelector('.pb[data-article="' + id + '"]');
+          if (btn instanceof HTMLElement) markButtonAsStudied(btn);
+        }
+      });
+    }
+
+    function logKnowledge(text) {
+      var el = document.getElementById('knowledgeLog');
+      if (!el) return;
+      var placeholder = el.querySelector('p[style*="italic"]');
+      if (placeholder) placeholder.remove();
+      var p = document.createElement('p');
+      p.style.cssText = 'color:var(--bio-green);padding:1px 0;border-bottom:1px solid var(--bio-border)';
+      p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text;
+      el.prepend(p);
+    }
   </script>
 </body>
 </html>`;
@@ -960,6 +1182,15 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       case 'scoutOutpost':
         this.socket?.emit('scoutOutpost', { outpostId: msg.outpostId });
         break;
+      case 'updateProfile':
+        this.socket?.emit('updateProfile', { name: msg.name, specialty: msg.specialty, bio: msg.bio, avatar: msg.avatar });
+        break;
+      case 'customizeLab':
+        this.socket?.emit('customizeLab', { name: msg.name, focus: msg.focus, desc: msg.desc, color: msg.color });
+        break;
+      case 'studyArticle':
+        this.socket?.emit('studyArticle', { articleId: msg.articleId });
+        break;
     }
   }
 }
@@ -980,6 +1211,49 @@ function getViewContent(viewId: string): string {
     <div class="rank-name" id="rankName">Connect to view rank</div>
     <div class="rank-sub"  id="rankSub">Authenticate to begin</div>
     <div class="xp-track"><div class="xp-fill" id="xpFill"></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ch">
+    <h2>👤 Scientist Profile</h2>
+    <button class="btn sm" id="toggleProfileBtn">✏️ Edit</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="rank-orb" id="profileAvatar" style="font-size:1.3em;width:38px;height:38px">🔬</div>
+    <div>
+      <div style="font-weight:700;font-size:0.88em" id="profileName">Anonymous Scientist</div>
+      <div style="font-size:0.72em;opacity:0.55" id="profileSpecialty">General Research</div>
+    </div>
+  </div>
+  <div id="profileForm" class="hidden" style="margin-top:8px">
+    <div class="lbl" style="margin-bottom:3px">Display Name</div>
+    <input id="profileNameInput" placeholder="Dr. Jane Smith" class="sp" />
+    <div class="lbl" style="margin-bottom:3px">Research Specialty</div>
+    <select id="profileSpecialtyInput" class="sp">
+      <option>General Research</option>
+      <option>CRISPR &amp; Gene Editing</option>
+      <option>Genomics &amp; Sequencing</option>
+      <option>Drug Discovery</option>
+      <option>Environmental Biotech</option>
+      <option>Bioinformatics</option>
+      <option>Synthetic Biology</option>
+    </select>
+    <div class="lbl" style="margin-bottom:3px">Avatar</div>
+    <div class="avatar-grid">
+      <span class="avatar-opt sel" data-avatar="🔬">🔬</span>
+      <span class="avatar-opt" data-avatar="🧬">🧬</span>
+      <span class="avatar-opt" data-avatar="⚗️">⚗️</span>
+      <span class="avatar-opt" data-avatar="🧪">🧪</span>
+      <span class="avatar-opt" data-avatar="💊">💊</span>
+      <span class="avatar-opt" data-avatar="🌿">🌿</span>
+      <span class="avatar-opt" data-avatar="🤖">🤖</span>
+      <span class="avatar-opt" data-avatar="🦠">🦠</span>
+    </div>
+    <div class="lbl" style="margin-bottom:3px">Bio</div>
+    <textarea id="profileBioInput" rows="2" placeholder="Passionate about biotech…" class="sp"></textarea>
+    <button class="btn p full" id="saveProfileBtn">💾 Save Profile</button>
+    <div id="profileSaveMsg" class="hidden" style="color:var(--bio-green);font-size:0.78em;text-align:center;margin-top:4px">✅ Profile saved!</div>
   </div>
 </div>
 
@@ -1080,6 +1354,39 @@ function getViewContent(viewId: string): string {
       <div class="faction-body"><div class="faction-nm">Eco Vanguard</div><div class="faction-desc">Environmental &amp; ecology · 31 members · Green Frontier territory</div></div>
       <button class="btn sm" data-faction-id="eco-vanguard">Pledge →</button>
     </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ch">
+    <h2>⚙️ Lab Settings</h2>
+    <button class="btn sm" id="toggleLabSettingsBtn">✏️ Customize</button>
+  </div>
+  <p style="font-size:0.77em;opacity:0.6;margin-bottom:4px">Personalize your active lab — set a custom name, focus, description, and accent color.</p>
+  <div id="labSettingsForm" class="hidden">
+    <div class="lbl" style="margin-bottom:3px">Lab Display Name</div>
+    <input id="labNameInput" placeholder="My Research Lab" class="sp" />
+    <div class="lbl" style="margin-bottom:3px">Research Focus</div>
+    <select id="labFocusInput" class="sp">
+      <option>CRISPR &amp; Gene Editing</option>
+      <option>Protein Folding</option>
+      <option>Drug Discovery</option>
+      <option>Gene Expression</option>
+      <option>Environmental Impact</option>
+      <option>Synthetic Biology</option>
+      <option>Bioinformatics</option>
+    </select>
+    <div class="lbl" style="margin-bottom:3px">Lab Description</div>
+    <textarea id="labDescInput" rows="2" placeholder="Describe your lab's mission…" class="sp"></textarea>
+    <div class="lbl" style="margin-bottom:3px">Accent Color</div>
+    <div id="labColorPicker" style="display:flex;gap:6px;margin-bottom:7px">
+      <button class="color-swatch on" data-color="#00e5cc" style="background:#00e5cc;color:#071211">Teal</button>
+      <button class="color-swatch" data-color="#3de87a" style="background:#3de87a;color:#071211">Green</button>
+      <button class="color-swatch" data-color="#f0b429" style="background:#f0b429;color:#071211">Amber</button>
+      <button class="color-swatch" data-color="#5bc8f5" style="background:#5bc8f5;color:#071211">Blue</button>
+    </div>
+    <button class="btn p full" id="saveLabBtn">💾 Save Lab Settings</button>
+    <div id="labSaveMsg" class="hidden" style="color:var(--bio-green);font-size:0.78em;text-align:center;margin-top:4px">✅ Lab settings saved!</div>
   </div>
 </div>
 
@@ -1334,6 +1641,86 @@ function getViewContent(viewId: string): string {
 <div class="card">
   <div class="ch"><h2>Exploration Log</h2></div>
   <div id="experimentLog"><p style="opacity:0.4;font-style:italic">No expeditions yet — scout a region to begin.</p></div>
+</div>`;
+
+    // ── Learning Center ───────────────────────────────────────
+    case 'learning':
+      return /* html */ `
+<div class="ph"><span class="ph-icon">📚</span><span class="ph-title">Learning Center</span><span class="ph-dot"></span></div>
+<p style="font-size:0.8em;opacity:0.6;margin-bottom:8px">Master biotech research skills through guided paths, curated articles, and quick-reference guides.</p>
+
+<div class="card">
+  <div class="ch"><h2>🗺️ Learning Paths</h2><span style="font-size:0.68em;opacity:0.45">click an article to study</span></div>
+
+  <div class="learn-path">
+    <div class="path-hdr">
+      <span class="path-icon">🌱</span>
+      <div class="path-info"><div class="path-nm">Foundations of Biotech</div><div class="path-sub">4 articles · Beginner · ~2h</div></div>
+      <span class="bdg bdg-beginner">Beginner</span>
+    </div>
+    <div class="xp-track" style="margin:5px 0"><div class="xp-fill" style="width:0%"></div></div>
+    <div class="path-modules">
+      <button class="pb" data-article="intro-biotech">🧬 Intro to Biotech</button>
+      <button class="pb" data-article="dna-basics">🔬 DNA Basics</button>
+      <button class="pb" data-article="seq-technologies">📡 Sequencing Tech</button>
+      <button class="pb" data-article="guide-rna">🎯 Guide RNA Design</button>
+    </div>
+  </div>
+
+  <div class="learn-path">
+    <div class="path-hdr">
+      <span class="path-icon">⚗️</span>
+      <div class="path-info"><div class="path-nm">CRISPR &amp; Gene Editing</div><div class="path-sub">4 articles · Intermediate · ~3h</div></div>
+      <span class="bdg bdg-intermediate">Intermediate</span>
+    </div>
+    <div class="xp-track" style="margin:5px 0"><div class="xp-fill" style="width:0%"></div></div>
+    <div class="path-modules">
+      <button class="pb" data-article="crispr-history">📜 CRISPR History</button>
+      <button class="pb" data-article="cas9-mechanism">🔧 Cas9 Mechanism</button>
+      <button class="pb" data-article="guide-rna">🎯 Guide RNA Design</button>
+      <button class="pb" data-article="off-target">⚠️ Off-target Effects</button>
+    </div>
+  </div>
+
+  <div class="learn-path">
+    <div class="path-hdr">
+      <span class="path-icon">🔭</span>
+      <div class="path-info"><div class="path-nm">Computational Genomics</div><div class="path-sub">2 articles · Advanced · ~4h</div></div>
+      <span class="bdg bdg-advanced">Advanced</span>
+    </div>
+    <div class="xp-track" style="margin:5px 0"><div class="xp-fill" style="width:0%"></div></div>
+    <div class="path-modules">
+      <button class="pb" data-article="seq-technologies">🧬 Seq Technologies</button>
+      <button class="pb" data-article="variant-calling">📊 Variant Calling</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="articleViewer" style="display:none">
+  <div class="ch">
+    <h2 id="articleTitle">Article</h2>
+    <button class="btn sm" id="closeArticleBtn">✕ Close</button>
+  </div>
+  <div id="articleContent" style="font-size:0.82em;line-height:1.7;opacity:0.88"></div>
+  <div class="hr"></div>
+  <button class="btn p full" id="markStudiedBtn">✅ Mark as Studied (+50 XP)</button>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>📋 Quick Reference</h2><span style="font-size:0.68em;opacity:0.45">key experiment parameters</span></div>
+  <div class="resource-row"><span class="res-icon">✂️</span><span class="res-name">Guide RNA GC content</span><span class="res-qty" style="color:var(--bio-amber)">40–70%</span></div>
+  <div class="resource-row"><span class="res-icon">🧩</span><span class="res-name">Protein folding ΔG</span><span class="res-qty" style="color:var(--bio-amber)">&lt; 0 kcal/mol</span></div>
+  <div class="resource-row"><span class="res-icon">💊</span><span class="res-name">Drug binding IC50</span><span class="res-qty" style="color:var(--bio-amber)">&lt; 1 μM</span></div>
+  <div class="resource-row"><span class="res-icon">🧬</span><span class="res-name">RNA-Seq read depth</span><span class="res-qty" style="color:var(--bio-amber)">≥ 20M reads</span></div>
+  <div class="resource-row"><span class="res-icon">🌿</span><span class="res-name">Environmental sample n</span><span class="res-qty" style="color:var(--bio-amber)">≥ 30</span></div>
+  <div class="resource-row"><span class="res-icon">📊</span><span class="res-name">Variant call depth filter</span><span class="res-qty" style="color:var(--bio-amber)">≥ 10×</span></div>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>📖 Research Notes</h2></div>
+  <div id="knowledgeLog" style="max-height:130px;overflow-y:auto;font-size:0.76em;font-family:var(--vscode-editor-font-family,'Courier New',monospace)">
+    <p style="opacity:0.4;font-style:italic">Start studying articles to build your research notes…</p>
+  </div>
 </div>`;
 
     default:
