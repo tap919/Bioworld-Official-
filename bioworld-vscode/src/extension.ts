@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const providers = new Map<string, BioWorldWebviewProvider>();
 
   // Register webview providers for each sidebar view
-  const viewIds = ['dashboard', 'labs', 'marketplace', 'agents'] as const;
+  const viewIds = ['dashboard', 'labs', 'marketplace', 'agents', 'experiments'] as const;
   for (const viewId of viewIds) {
     const provider = new BioWorldWebviewProvider(context.extensionUri, viewId, socketUrl);
     providers.set(viewId, provider);
@@ -27,6 +27,12 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!token) {
         return;
       }
+      // Disconnect any existing socket to avoid duplicate handlers on re-login.
+      if (socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+      }
+
       socket = io(socketUrl, { auth: { token } });
       socket.on('connect', () => {
         vscode.window.showInformationMessage('BioWorld: Connected!');
@@ -36,6 +42,24 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       socket.on('connect_error', (err: Error) => {
         vscode.window.showErrorMessage(`BioWorld: Connection failed — ${err.message}`);
+      });
+
+      // Relay server-driven gamification events to the relevant webview
+      socket.on('challengeUpdate', (data: unknown) => {
+        providers.get('dashboard')?.postMessage({ cmd: 'challengeUpdate', ...toRecord(data) });
+        providers.get('experiments')?.postMessage({ cmd: 'challengeUpdate', ...toRecord(data) });
+      });
+      socket.on('achievementUnlocked', (data: unknown) => {
+        providers.get('dashboard')?.postMessage({ cmd: 'achievementUnlocked', ...toRecord(data) });
+        if (isRecord(data) && typeof data.name === 'string') {
+          vscode.window.showInformationMessage(`🏆 Achievement unlocked: ${data.name}`);
+        }
+      });
+      socket.on('skillRankUpdate', (data: unknown) => {
+        providers.get('dashboard')?.postMessage({ cmd: 'skillRankUpdate', ...toRecord(data) });
+      });
+      socket.on('experimentResult', (data: unknown) => {
+        providers.get('experiments')?.postMessage({ cmd: 'experimentResult', ...toRecord(data) });
       });
 
       // Relay agent tasks to OpenClaw gateway
@@ -114,11 +138,61 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage(`Agent "${name}" registration submitted ($5 fit).`);
     })
   );
+
+  // Run a biotech experiment / simulation
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bioworld.runExperiment', async () => {
+      const experimentTypes = [
+        'Mutation Analysis',
+        'Protein Folding Simulation',
+        'Drug Binding Prediction',
+        'Environmental Impact Model',
+        'Gene Expression Analysis',
+      ];
+      const type = await vscode.window.showQuickPick(experimentTypes, {
+        placeHolder: 'Select experiment type',
+      });
+      if (!type) {
+        return;
+      }
+      const params = await vscode.window.showInputBox({
+        prompt: `Parameters for "${type}" (optional JSON)`,
+        value: '{}',
+      });
+      const rawParams = params || '{}';
+      let parsedParams: unknown;
+      try {
+        parsedParams = JSON.parse(rawParams);
+      } catch {
+        vscode.window.showWarningMessage('Invalid JSON parameters — using empty object.');
+        parsedParams = {};
+      }
+      socket?.emit('runExperiment', { type, params: parsedParams });
+      providers.get('experiments')?.postMessage({ cmd: 'experimentStarted', type });
+      vscode.window.showInformationMessage(`Experiment started: ${type}`);
+    })
+  );
+
+  // View the current user's achievements
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bioworld.viewAchievements', () => {
+      socket?.emit('getAchievements');
+      providers.get('dashboard')?.postMessage({ cmd: 'showAchievements' });
+    })
+  );
 }
 
 async function getToken(): Promise<string | undefined> {
   const session = await vscode.authentication.getSession('github', ['read:user'], { createIfNone: true });
   return session?.accessToken;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
 }
 
 export function deactivate(): void {

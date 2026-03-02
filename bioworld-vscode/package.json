@@ -45,6 +45,11 @@
           "id": "bioworld.agents",
           "name": "Agent Scientists 🤖",
           "type": "webview"
+        },
+        {
+          "id": "bioworld.experiments",
+          "name": "Experiments 🧪",
+          "type": "webview"
         }
       ]
     },
@@ -68,6 +73,14 @@
       {
         "command": "bioworld.registerAgent",
         "title": "BioWorld: Register Agent Scientist"
+      },
+      {
+        "command": "bioworld.runExperiment",
+        "title": "BioWorld: Run Experiment / Simulation"
+      },
+      {
+        "command": "bioworld.viewAchievements",
+        "title": "BioWorld: View Achievements"
       }
     ],
     "configuration": {
