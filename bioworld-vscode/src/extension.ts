@@ -234,8 +234,23 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showWarningMessage('Quantity must be a positive number.');
         return;
       }
-      socket?.emit('tradeOffer', { resource, qty });
-      vscode.window.showInformationMessage(`Trade offer posted: ${qty}× ${resource}`);
+      const wantResource = await vscode.window.showQuickPick(
+        ['Bio-Samples', 'Data Fragments', 'Reagent Packs', 'Compute Cores', 'Gene Sequences'],
+        { placeHolder: 'Select resource you want in return' },
+      );
+      if (!wantResource) {
+        return;
+      }
+      const wantQtyStr = await vscode.window.showInputBox({ prompt: 'Quantity you want in return', value: '1' });
+      const wantQty = parseInt(wantQtyStr || '1', 10);
+      if (isNaN(wantQty) || wantQty < 1) {
+        vscode.window.showWarningMessage('Requested quantity must be a positive number.');
+        return;
+      }
+      socket?.emit('tradeOffer', { resource, qty, wantResource, wantQty });
+      vscode.window.showInformationMessage(
+        `Trade offer posted: ${qty}× ${resource} for ${wantQty}× ${wantResource}`,
+      );
     })
   );
 
