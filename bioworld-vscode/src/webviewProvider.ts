@@ -704,9 +704,10 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       // Try to update an existing row for this resource instead of appending a duplicate
       const existingRows = el.querySelectorAll('.resource-row');
       for (let i = 0; i < existingRows.length; i++) {
-        const nameEl = existingRows[i].querySelector('.res-name');
-        if (nameEl && nameEl.textContent === resource) {
-          const qtyEl = existingRows[i].querySelector('.res-qty');
+        const row = existingRows[i];
+        const nameEl = row.querySelector('.res-name');
+        if (nameEl && (nameEl.textContent || '').trim() === resource) {
+          const qtyEl = row.querySelector('.res-qty');
           if (qtyEl) {
             const current = parseInt(qtyEl.textContent, 10) || 0;
             qtyEl.textContent = String(current + safeQty);
