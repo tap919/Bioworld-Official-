@@ -467,6 +467,16 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         startExp(name);
         sendToHost('runExperiment', { type: name, params: { stages: pipelineStages } });
       });
+
+      // Post trade offer with validation
+      document.getElementById('postTradeBtn')?.addEventListener('click', () => {
+        const resource     = document.getElementById('tradeOffer')?.value || '';
+        const wantResource = document.getElementById('tradeWant')?.value || '';
+        const qty     = parseInt(document.getElementById('tradeOfferQty')?.value, 10);
+        const wantQty = parseInt(document.getElementById('tradeWantQty')?.value, 10);
+        if (!qty || qty < 1 || !wantQty || wantQty < 1) return;
+        sendToHost('offerTrade', { resource, qty, wantResource, wantQty });
+      });
     })();
 
     function addStageFromInput() {
@@ -689,11 +699,12 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     function appendResource(resource, qty) {
       const el = document.getElementById('inventory');
       if (!el) return;
+      const safeQty = parseInt(qty, 10) || 0;
       const row = document.createElement('div');
       row.className = 'resource-row';
-      row.innerHTML = '<span class="res-name">' + esc(resource) + '</span><span class="res-qty">+' + esc(qty) + '</span>';
+      row.innerHTML = '<span class="res-name">' + esc(resource) + '</span><span class="res-qty">+' + esc(safeQty) + '</span>';
       el.appendChild(row);
-      logLine('📦 Gathered ' + qty + '× ' + resource);
+      logLine('📦 Gathered ' + safeQty + '× ' + resource);
     }
 
     function renderInventory(inventory) {
@@ -1021,7 +1032,7 @@ function getViewContent(viewId: string): string {
     <select id="tradeWant" style="flex:1"><option>Bio-Samples</option><option>Data Fragments</option><option>Reagent Packs</option><option>Compute Cores</option><option>Gene Sequences</option></select>
     <input id="tradeWantQty" placeholder="Qty" style="width:50px;flex:0 0 50px" value="1" />
   </div>
-  <button class="btn p full" onclick="sendToHost('offerTrade',{resource:document.getElementById('tradeOffer').value,qty:document.getElementById('tradeOfferQty').value,wantResource:document.getElementById('tradeWant').value,wantQty:document.getElementById('tradeWantQty').value})">Post Trade Offer</button>
+  <button class="btn p full" id="postTradeBtn">Post Trade Offer</button>
 </div>
 
 <div class="card">

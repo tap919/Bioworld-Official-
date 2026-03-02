@@ -230,6 +230,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const qtyStr = await vscode.window.showInputBox({ prompt: 'Quantity to offer', value: '1' });
       const qty = parseInt(qtyStr || '1', 10);
+      if (isNaN(qty) || qty < 1) {
+        vscode.window.showWarningMessage('Quantity must be a positive number.');
+        return;
+      }
       socket?.emit('tradeOffer', { resource, qty });
       vscode.window.showInformationMessage(`Trade offer posted: ${qty}× ${resource}`);
     })
@@ -238,20 +242,21 @@ export function activate(context: vscode.ExtensionContext): void {
   // Join a lab faction
   context.subscriptions.push(
     vscode.commands.registerCommand('bioworld.joinFaction', async () => {
-      const factions = [
-        'Helix Collective — CRISPR & gene editing',
-        'Synthesis Order — drug discovery & chemistry',
-        'Genome Pioneers — sequencing & genomics',
-        'Eco Vanguard — environmental & ecology',
-      ];
-      const choice = await vscode.window.showQuickPick(factions, { placeHolder: 'Choose your lab faction' });
+      const factionMap: Record<string, string> = {
+        'Helix Collective — CRISPR & gene editing': 'helix-collective',
+        'Synthesis Order — drug discovery & chemistry': 'synthesis-order',
+        'Genome Pioneers — sequencing & genomics': 'genome-pioneers',
+        'Eco Vanguard — environmental & ecology': 'eco-vanguard',
+      };
+      const choice = await vscode.window.showQuickPick(Object.keys(factionMap), { placeHolder: 'Choose your lab faction' });
       if (!choice) {
         return;
       }
-      const factionId = choice.split('—')[0].trim().toLowerCase().replace(/\s+/g, '-');
+      const factionId = factionMap[choice];
+      const factionName = choice.split('—')[0].trim();
       socket?.emit('joinFaction', { factionId });
       providers.get('labs')?.postMessage({ cmd: 'factionJoined', factionId });
-      vscode.window.showInformationMessage(`Joined faction: ${choice.split('—')[0].trim()}`);
+      vscode.window.showInformationMessage(`Joined faction: ${factionName}`);
     })
   );
 }
