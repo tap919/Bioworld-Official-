@@ -1,0 +1,159 @@
+let's think about people wanting to use agents like openclaw and allowing them to register agent scientists.  having their agents "fitted" for the ecosystem for $5
+
+BioWorld's **Agent Scientist Registry** lets players register OpenClaw (or similar LLM agents) as autonomous "lab members"—fitted for $5 one‑time to plug into pipelines, run experiments, and earn shared progress (no cash, just XP/leaderboard bumps).[1][2]
+
+## Agent Scientist Concept
+
+- **What they are**: OpenClaw agents specialized for biotech (e.g., "Cas9 Optimizer Bot") that autonomously:
+  - Run simulations/mutations in IDE pipelines.
+  - Collab in labs (chat, vote on results).
+  - Trade tools on marketplace.
+- **Fitting process** ($5): Owner pays to "certify" agent with BioWorld APIs/tools—gets profile, stats, lab access.[2]
+- **Economy fit**: Agents earn "shared XP" for owner (e.g., 50% of agent's contributions); no $ rewards to prevent gaming.
+- **Anti‑cheat**: Sandboxed execution; peer‑review all agent outputs; rate‑limit submits.
+
+## Extension Integration (add to scaffold)
+
+### Update package.json
+```json
+{ "views": { "bioworld": [ ..., { "id": "agents", "name": "Agent Scientists 🤖", "type": "webview" } ] },
+  "commands": [ ..., { "command": "bioworld.registerAgent", "title": "Register Agent Scientist" } ]
+}
+```
+
+### webviewProvider.ts (Agents view)
+```typescript
+// getHtmlForView('agents')
+if (viewId === 'agents') return `
+  <div class="p-4 space-y-4">
+    <h1>Agent Scientists</h1>
+    <button id="registerBtn" class="bg-blue-500 p-2 rounded">$5 Fit New Agent</button>
+    <div id="myAgents" class="grid grid-cols-2 gap-4"></div>
+    <div id="labAgents"><!-- Active lab bots --></div>
+  </div>
+  <script>
+    socket.on('agentUpdate', agents => renderAgents(agents));
+    document.getElementById('registerBtn').onclick = () => {
+      const config = { name: 'Cas9Bot', openclawConfig: '{gateway: "..."}', tools: ['mutracker', 'chemlab'] };
+      socket.emit('registerAgent', config);
+    };
+  </script>`;
+```
+
+### extension.ts Additions
+```typescript
+vscode.commands.registerCommand('bioworld.registerAgent', async () => {
+  const name = await vscode.window.showInputBox({ prompt: 'Agent Name' });
+  const openclawUrl = await vscode.window.showInputBox({ prompt: 'OpenClaw Gateway URL' });
+  socket?.emit('registerAgent', { name, openclawUrl, fitFee: 5 });
+});
+
+// Agent task dispatch
+socket.on('agentTask', (task) => {
+  // Proxy to OpenClaw API: run mutation analysis
+  fetch(`${openclawUrl}/run`, { method: 'POST', body: JSON.stringify(task) })
+    .then(res => res.json())
+    .then(result => socket.emit('agentResult', result));
+});
+```
+
+## Backend Agent Logic (Supabase + OpenClaw Hooks)
+
+### Schema Additions
+```sql
+-- agents
+CREATE TABLE agents (
+  id UUID PRIMARY KEY,
+  owner_id UUID REFERENCES users(id),
+  name TEXT,
+  openclaw_gateway TEXT,  -- e.g., ws://user-openclaw:3000
+  fitted BOOLEAN DEFAULT FALSE,
+  tools TEXT[],  -- ['mutracker', 'simulator']
+  xp_share DECIMAL DEFAULT 0.5,  -- % to owner
+  lab_id UUID
+);
+
+-- agent_runs (audit all actions)
+CREATE TABLE agent_runs (
+  id UUID,
+  agent_id UUID,
+  task TEXT,  -- 'run Cas9 sim'
+  result JSONB,
+  validated BOOLEAN,
+  timestamp TIMESTAMPTZ
+);
+```
+
+### Socket Events
+```typescript
+socket.on('registerAgent', async (config) => {
+  if (!await hasCredits(socket.userId, 5)) return socket.emit('error', 'Insufficient credits');
+  
+  const agentId = await db.insert('agents', { ...config, owner_id: socket.userId });
+  deductCredits(socket.userId, 5);
+  
+  // Fit: Test integration
+  await testAgentFit(config.openclaw_gateway, config.tools);
+  await db.update('agents', { id: agentId }, { fitted: true });
+  
+  io.emit('agentUpdate', await getLabAgents());
+});
+
+async function dispatchAgentTask(agentId: string, task: Task) {
+  const agent = await db.get('agents', agentId);
+  const result = await proxyToOpenClaw(agent.openclaw_gateway, task);  // POST /run
+  
+  await db.insert('agent_runs', { agent_id: agentId, task: JSON.stringify(task), result });
+  
+  // Auto‑validate simple tasks; peer for complex
+  if (await validateResult(result)) {
+    awardXP(agent.owner_id, calculateScore(result) * agent.xp_share);
+    io.to(`lab-${agent.lab_id}`).emit('leaderboardUpdate');
+  }
+}
+```
+
+### Fitting Workflow ($5 magic)
+1. **Register**: Pay $5 → server pings OpenClaw gateway, installs BioWorld tools (e.g., MuTracker API wrapper).
+2. **Test suite**: Run 3 benchmarks (mutation analysis, sim pipeline) → certify if >80% accuracy.
+3. **Active**: Agent joins lab chat, auto‑bids on tasks ("I'll run 100 variants"), submits via WebSocket.
+4. **Modding**: Owners tweak via OpenClaw config; marketplace sells "agent blueprints."
+
+## Ecosystem Impact
+- **Labs love it**: 24/7 grunt work (sims while you sleep).
+- **Marketplace boom**: Sell agent configs/presets (e.g., "Breast Cancer Hunter v2").
+- **Science purity**: All outputs peer‑reviewed; agents can't "cheat" progress.
+- **Your revenue**: $5 fits + marketplace cuts.
+
+## OpenClaw Proxy Helper (extension/server)
+```typescript
+// POST to agent's gateway
+async function proxyToOpenClaw(gateway: string, task: string) {
+  return fetch(`${gateway}/api/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'BioWorld' },
+    body: JSON.stringify({ prompt: `As biotech agent: ${task}`, tools: ['ide_api'] })
+  }).then(r => r.json());
+}
+```
+
+Agents turn BioWorld into agentic science MMO—register one tonight!
+
+Want agent test benchmarks code, or OpenClaw config templates for biotech tools?
+
+Citations:
+[1] OpenClaw — Personal AI Assistant https://openclaw.ai
+[2] openclaw/openclaw: Your own personal AI assistant. Any ... - GitHub https://github.com/openclaw/openclaw
+[3] What Security Teams Need to Know About OpenClaw, the AI Super ... https://www.crowdstrike.com/en-us/blog/what-security-teams-need-to-know-about-openclaw-ai-super-agent/
+[4] OpenClaw: The Viral AI Agent that Broke the Internet - YouTube https://www.youtube.com/watch?v=YFjfBk8HI5o
+[5] What Is OpenClaw? Complete Guide to the Open-Source AI Agent https://milvus.io/blog/openclaw-formerly-clawdbot-moltbot-explained-a-complete-guide-to-the-autonomous-ai-agent.md
+[6] AI agents are rewriting biopharma's $140B playbook - SignalFire https://www.signalfire.com/blog/ai-agents-in-biopharma-end-outsourced-drug-development
+[7] Run LLMs Locally with Continue VS Code Extension | Exxact Blog https://www.exxactcorp.com/blog/deep-learning/run-llms-locally-with-continue-vs-code-extension
+[8] Nim Network Launches New Economic Framework, Introducing AI ... https://www.binance.com/en/square/post/2024-04-03-nim-network-ai-6257187648242
+[9] What is OpenClaw? Your Open-Source AI Assistant for 2026 https://www.digitalocean.com/resources/articles/what-is-openclaw
+[10] AI in Biotechnology Market to Reach $11.4 Billion by 2030 https://www.bccresearch.com/pressroom/ait/ai-in-biotechnology-market-to-reach-$114-billion
+[11] How to Integrate Large Language Models into Your VSCode Workflow https://www.gocodeo.com/post/how-to-integrate-large-language-models-into-your-vscode-workflow-a-hands-on-guide
+[12] The Rise of AI Agents in Gaming: Play, Earn & Own Digital Assets https://www.blockchainappfactory.com/blog/ai-agents-in-gaming/
+[13] Pi: The Minimal Agent Within OpenClaw - Armin Ronacher https://lucumr.pocoo.org/2026/1/31/pi/
+[14] Reimagining life science enterprises with agentic AI - McKinsey https://www.mckinsey.com/industries/life-sciences/our-insights/reimagining-life-science-enterprises-with-agentic-ai
+[15] I built a VS Code extension where an LLM actually edits files ... https://www.reddit.com/r/vscode/comments/1qoss2a/i_built_a_vs_code_extension_where_an_llm_actually/
