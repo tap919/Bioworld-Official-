@@ -308,6 +308,83 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     .dim    { opacity: 0.45; font-style: italic; font-size: 0.8em; }
     .sp     { margin-bottom: 5px; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* ── Resource / inventory rows ────────────────────────── */
+    .resource-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 8px; margin-bottom: 3px;
+      background: var(--bio-surface);
+      border: 1px solid var(--bio-border);
+      border-radius: var(--r);
+      font-size: 0.82em;
+    }
+    .res-icon { font-size: 1.05em; flex-shrink: 0; }
+    .res-name { flex: 1; font-weight: 600; }
+    .res-qty  { color: var(--bio-green); font-weight: 700; font-size: 0.88em; }
+
+    /* ── Outpost items ────────────────────────────────────── */
+    .outpost-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin-bottom: 5px;
+      background: var(--bio-surface);
+      border: 1px solid var(--bio-border);
+      border-radius: var(--r);
+      transition: border-color 0.2s;
+    }
+    .outpost-item:hover { border-color: var(--bio-border-hi); }
+    .outpost-icon { font-size: 1.25em; }
+    .outpost-body { flex: 1; min-width: 0; }
+    .outpost-nm   { font-weight: 700; font-size: 0.85em; }
+    .outpost-desc { font-size: 0.72em; opacity: 0.55; }
+
+    /* ── Faction items ────────────────────────────────────── */
+    .faction-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin-bottom: 5px;
+      background: var(--bio-surface);
+      border: 1px solid var(--bio-border);
+      border-radius: var(--r);
+      transition: border-color 0.2s;
+    }
+    .faction-item:hover { border-color: var(--bio-border-hi); }
+    .faction-icon { font-size: 1.25em; }
+    .faction-body { flex: 1; min-width: 0; }
+    .faction-nm   { font-weight: 700; font-size: 0.85em; color: var(--bio-accent); }
+    .faction-desc { font-size: 0.72em; opacity: 0.55; }
+
+    /* ── Region cards (world map) ─────────────────────────── */
+    .region-card {
+      background: var(--bio-surface);
+      border: 1px solid var(--bio-border);
+      border-radius: var(--r);
+      padding: 9px 10px; margin-bottom: 7px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .region-card:hover { border-color: var(--bio-border-hi); box-shadow: var(--bio-glow); }
+    .region-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .region-nm  { font-weight: 700; font-size: 0.85em; }
+    .region-res { display: flex; flex-wrap: wrap; gap: 4px; }
+    .region-res .bdg { cursor: pointer; }
+
+    /* ── Progression track ────────────────────────────────── */
+    .prog-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; margin-bottom: 7px;
+      background: var(--bio-surface2);
+      border: 1px solid var(--bio-border);
+      border-radius: var(--r);
+    }
+    .prog-orb {
+      width: 34px; height: 34px; flex-shrink: 0;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 1.1em;
+      border: 2px solid var(--bio-green);
+      background: var(--bio-surface);
+      box-shadow: 0 0 10px rgba(61,232,122,0.18);
+    }
+    .prog-info { flex: 1; min-width: 0; }
+    .prog-tier { font-weight: 700; font-size: 0.88em; color: var(--bio-green); }
+    .prog-sub  { font-size: 0.72em; opacity: 0.6; }
   </style>
 </head>
 <body>
@@ -389,6 +466,16 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         const name = document.getElementById('pipelineName')?.value?.trim() || 'Pipeline';
         startExp(name);
         sendToHost('runExperiment', { type: name, params: { stages: pipelineStages } });
+      });
+
+      // Post trade offer with validation
+      document.getElementById('postTradeBtn')?.addEventListener('click', () => {
+        const resource     = document.getElementById('tradeOffer')?.value || '';
+        const wantResource = document.getElementById('tradeWant')?.value || '';
+        const qty     = parseInt(document.getElementById('tradeOfferQty')?.value, 10);
+        const wantQty = parseInt(document.getElementById('tradeWantQty')?.value, 10);
+        if (!qty || qty < 1 || !wantQty || wantQty < 1) return;
+        sendToHost('offerTrade', { resource, qty, wantResource, wantQty });
       });
     })();
 
@@ -505,6 +592,16 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         case 'skillRankUpdate':     updateRank(msg.rank, msg.xp, msg.nextRank, msg.progress); break;
         case 'experimentStarted':   startExp(msg.type); break;
         case 'experimentResult':    completeExp(msg.type, msg.result); break;
+        case 'resourceGathered':    appendResource(msg.resource, msg.qty); break;
+        case 'outpostDiscovered':   appendOutpost(msg.outpost); break;
+        case 'outpostUpdate':       renderOutposts(msg.outposts); break;
+        case 'factionUpdate':       renderFactions(msg.factions); break;
+        case 'factionJoined':       highlightFaction(msg.factionId); break;
+        case 'tradeOffer':          appendTradeOffer(msg); break;
+        case 'tradeComplete':       logTrade(msg); break;
+        case 'inventoryUpdate':     renderInventory(msg.inventory); break;
+        case 'progressionUpdate':   renderProgression(msg); break;
+        case 'explore':             logLine('🗺️ Exploring the world…'); break;
       }
     }
 
@@ -597,6 +694,225 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         '<div style="font-size:0.73em;opacity:0.55">' + (a.openclawUrl ? esc(a.openclawUrl) : 'Configuring…') + '</div></div>'
       ).join('');
     }
+
+    // ── Resource / inventory helpers ──────────────────────────
+    function appendResource(resource, qty) {
+      const el = document.getElementById('inventory');
+      if (!el) return;
+      const safeQty = parseInt(qty, 10) || 0;
+
+      // Try to update an existing row for this resource instead of appending a duplicate
+      const existingRows = el.querySelectorAll('.resource-row');
+      for (let i = 0; i < existingRows.length; i++) {
+        const row = existingRows[i];
+        const nameEl = row.querySelector('.res-name');
+        if (nameEl && (nameEl.textContent || '').trim() === resource) {
+          const qtyEl = row.querySelector('.res-qty');
+          if (qtyEl) {
+            const current = parseInt(qtyEl.textContent, 10) || 0;
+            qtyEl.textContent = String(current + safeQty);
+          }
+          logLine('📦 Gathered ' + safeQty + '× ' + resource);
+          return;
+        }
+      }
+
+      // No existing row — create a new one
+      const row = document.createElement('div');
+      row.className = 'resource-row';
+      row.innerHTML = '<span class="res-name">' + esc(resource) + '</span><span class="res-qty">' + esc(safeQty) + '</span>';
+      el.appendChild(row);
+      logLine('📦 Gathered ' + safeQty + '× ' + resource);
+    }
+
+    function renderInventory(inventory) {
+      const el = document.getElementById('inventory');
+      if (!el || !Array.isArray(inventory)) return;
+      el.innerHTML = inventory.map(r =>
+        '<div class="resource-row">' +
+        '<span class="res-icon">' + esc(r.icon || '📦') + '</span>' +
+        '<span class="res-name">' + esc(r.name) + '</span>' +
+        '<span class="res-qty">' + esc(r.qty) + '</span></div>'
+      ).join('');
+    }
+
+    // ── Outpost helpers ───────────────────────────────────────
+    function validateUrl(url) {
+      try {
+        const parsed = new URL(String(url));
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          return parsed.toString();
+        }
+      } catch {
+        // ignore parse errors
+      }
+      return null;
+    }
+
+    function appendOutpost(outpost) {
+      const el = document.getElementById('outposts');
+      if (!el) return;
+
+      const d = document.createElement('div');
+      d.className = 'outpost-item';
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'outpost-icon';
+      iconSpan.textContent = outpost.icon || '🏕️';
+      d.appendChild(iconSpan);
+
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'outpost-body';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'outpost-nm';
+      nameDiv.textContent = outpost.name;
+      bodyDiv.appendChild(nameDiv);
+
+      const descDiv = document.createElement('div');
+      descDiv.className = 'outpost-desc';
+      descDiv.textContent = outpost.desc || '';
+      bodyDiv.appendChild(descDiv);
+
+      d.appendChild(bodyDiv);
+
+      if (outpost.url) {
+        const safeUrl = validateUrl(outpost.url);
+        if (safeUrl) {
+          const link = document.createElement('a');
+          link.className = 'btn sm';
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.href = safeUrl;
+          link.textContent = 'Visit →';
+          d.appendChild(link);
+        }
+      }
+
+      el.appendChild(d);
+    }
+
+    function renderOutposts(outposts) {
+      const el = document.getElementById('outposts');
+      if (!el || !Array.isArray(outposts)) return;
+      el.innerHTML = '';
+      outposts.forEach(o => appendOutpost(o));
+    }
+
+    // ── Faction helpers ───────────────────────────────────────
+    function renderFactions(factions) {
+      const el = document.getElementById('factions');
+      if (!el || !Array.isArray(factions)) return;
+      el.innerHTML = factions.map(f =>
+        '<div class="faction-item" data-fid="' + esc(f.id) + '">' +
+        '<span class="faction-icon">' + esc(f.icon || '⚗️') + '</span>' +
+        '<div class="faction-body">' +
+        '<div class="faction-nm">' + esc(f.name) + '</div>' +
+        '<div class="faction-desc">' + esc(f.members || 0) + ' members · ' + esc(f.territory || '—') + '</div></div>' +
+        '<button class="btn sm" data-faction-id="' + esc(f.id) + '">Pledge →</button>' +
+        '</div>'
+      ).join('');
+    }
+
+    const factionsRoot = document.getElementById('factions');
+    if (factionsRoot) {
+      factionsRoot.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-faction-id]');
+        if (!btn || !factionsRoot.contains(btn)) return;
+        const factionId = btn.getAttribute('data-faction-id');
+        if (!factionId) return;
+        sendToHost('joinFaction', { factionId: factionId });
+      });
+    }
+    function highlightFaction(factionId) {
+      document.querySelectorAll('.faction-item').forEach(el => {
+        el.style.borderColor = (el.dataset.fid === factionId)
+          ? 'var(--bio-accent)'
+          : 'var(--bio-border)';
+      });
+    }
+
+    // ── Trade / barter helpers ────────────────────────────────
+    const tradeBoardRoot = document.getElementById('tradeBoard');
+    if (tradeBoardRoot) {
+      tradeBoardRoot.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-trade-id]');
+        if (!btn || !tradeBoardRoot.contains(btn)) return;
+        const tradeId = btn.getAttribute('data-trade-id');
+        if (!tradeId) return;
+        sendToHost('acceptTrade', { tradeId: tradeId });
+      });
+    }
+
+    // ── World region resource gathering (delegated) ───────────
+    document.querySelectorAll('.region-res').forEach(function (container) {
+      container.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const badge = target.closest('.bdg[data-region-id]');
+        if (!badge) return;
+        const regionId = badge.getAttribute('data-region-id');
+        const resourceType = badge.getAttribute('data-resource-type');
+        if (!regionId || !resourceType) return;
+        sendToHost('gatherResource', { regionId: regionId, resourceType: resourceType });
+      });
+    });
+
+    // ── World outpost scouting (delegated) ────────────────────
+    const outpostsRoot = document.getElementById('outposts');
+    if (outpostsRoot) {
+      outpostsRoot.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-outpost-id]');
+        if (!btn || !outpostsRoot.contains(btn)) return;
+        const outpostId = btn.getAttribute('data-outpost-id');
+        if (!outpostId) return;
+        sendToHost('scoutOutpost', { outpostId: outpostId });
+      });
+    }
+
+    function appendTradeOffer(offer) {
+      const el = document.getElementById('tradeBoard');
+      if (!el) return;
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.innerHTML =
+        '<div class="ch"><strong style="font-size:0.84em">' + esc(offer.from || 'Trader') + '</strong>' +
+        '<span class="bdg bdg-intermediate">OFFER</span></div>' +
+        '<p style="font-size:0.77em;opacity:0.72;margin-bottom:5px">Offering ' +
+        esc(offer.qty || 1) + '× ' + esc(offer.resource || '?') +
+        (offer.wantResource ? ' for ' + esc(offer.wantQty || '?') + '× ' + esc(offer.wantResource) : '') + '</p>' +
+        '<button class="btn sm p" data-trade-id="' + esc(offer.tradeId || '') + '">Accept Trade</button>';
+      el.prepend(d);
+    }
+
+    function logTrade(info) {
+      logLine('🤝 Trade complete: ' + esc(info.summary || 'Resources exchanged'));
+    }
+
+    // ── Citizen-scientist progression helper ──────────────────
+    function renderProgression(data) {
+      const tierEl  = document.getElementById('progTier');
+      const descEl  = document.getElementById('progDesc');
+      const fillEl  = document.getElementById('progFill');
+      const nextEl  = document.getElementById('progNext');
+      if (tierEl) tierEl.textContent = data.tier || 'Citizen Scientist';
+      if (descEl) descEl.textContent = data.desc || '';
+      if (nextEl) nextEl.textContent = data.nextTier ? '→ ' + data.nextTier : '';
+      if (fillEl) {
+        var rawProgress = Number(data && data.progress);
+        if (!Number.isFinite(rawProgress)) {
+          rawProgress = 0;
+        }
+        var clampedProgress = Math.min(100, Math.max(0, rawProgress));
+        fillEl.style.width = clampedProgress + '%';
+      }
+    }
   </script>
 </body>
 </html>`;
@@ -629,6 +945,21 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       case 'acceptChallenge':
         this.socket?.emit('acceptChallenge', { challengeId: msg.challengeId });
         break;
+      case 'gatherResource':
+        this.socket?.emit('gatherResource', { regionId: msg.regionId, resourceType: msg.resourceType });
+        break;
+      case 'joinFaction':
+        this.socket?.emit('joinFaction', { factionId: msg.factionId });
+        break;
+      case 'offerTrade':
+        this.socket?.emit('tradeOffer', { resource: msg.resource, qty: msg.qty, wantResource: msg.wantResource, wantQty: msg.wantQty });
+        break;
+      case 'acceptTrade':
+        this.socket?.emit('acceptTrade', { tradeId: msg.tradeId });
+        break;
+      case 'scoutOutpost':
+        this.socket?.emit('scoutOutpost', { outpostId: msg.outpostId });
+        break;
     }
   }
 }
@@ -655,6 +986,35 @@ function getViewContent(viewId: string): string {
 <div class="metrics">
   <div class="metric"><div class="metric-val" id="metricExps">—</div><div class="metric-lbl">Experiments</div></div>
   <div class="metric"><div class="metric-val" id="metricPipes">—</div><div class="metric-lbl">Pipelines</div></div>
+  <div class="metric"><div class="metric-val" id="metricResources">—</div><div class="metric-lbl">Resources</div></div>
+  <div class="metric"><div class="metric-val" id="metricTrades">—</div><div class="metric-lbl">Trades</div></div>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>🏛️ Scientist Progression</h2><span style="font-size:0.68em;opacity:0.45">citizen → funded lab</span></div>
+  <div class="prog-row">
+    <div class="prog-orb">🔬</div>
+    <div class="prog-info">
+      <div class="prog-tier" id="progTier">Citizen Scientist</div>
+      <div class="prog-sub" id="progDesc">Gather resources &amp; contribute to unlock Lab Intern status</div>
+      <div class="prog-sub" id="progNext">→ Lab Intern</div>
+      <div class="xp-track"><div class="xp-fill" id="progFill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div style="font-size:0.72em;opacity:0.5;padding:4px 2px">
+    Citizen Scientist → Lab Intern → Research Fellow → Lab Director → Funded Lab
+  </div>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>📦 Resource Inventory</h2></div>
+  <div id="inventory">
+    <div class="resource-row"><span class="res-icon">🧫</span><span class="res-name">Bio-Samples</span><span class="res-qty">0</span></div>
+    <div class="resource-row"><span class="res-icon">💾</span><span class="res-name">Data Fragments</span><span class="res-qty">0</span></div>
+    <div class="resource-row"><span class="res-icon">🧪</span><span class="res-name">Reagent Packs</span><span class="res-qty">0</span></div>
+    <div class="resource-row"><span class="res-icon">⚡</span><span class="res-name">Compute Cores</span><span class="res-qty">0</span></div>
+    <div class="resource-row"><span class="res-icon">🧬</span><span class="res-name">Gene Sequences</span><span class="res-qty">0</span></div>
+  </div>
 </div>
 
 <div class="card">
@@ -695,6 +1055,34 @@ function getViewContent(viewId: string): string {
       return /* html */ `
 <div class="ph"><span class="ph-icon">🔬</span><span class="ph-title">Digital Wet Labs</span><span class="ph-dot"></span></div>
 <p style="font-size:0.8em;opacity:0.6;margin-bottom:8px">Join a research team and collaborate on live experiments.</p>
+
+<div class="card">
+  <div class="ch"><h2>⚔️ Lab Factions</h2><span style="font-size:0.68em;opacity:0.45">pledge allegiance</span></div>
+  <p style="font-size:0.77em;opacity:0.6;margin-bottom:7px">Factions compete for territory, resources, and scientific breakthroughs. Join one to unlock faction missions and shared labs.</p>
+  <div id="factions">
+    <div class="faction-item" data-fid="helix-collective">
+      <span class="faction-icon">🧬</span>
+      <div class="faction-body"><div class="faction-nm">Helix Collective</div><div class="faction-desc">CRISPR &amp; gene editing · 42 members · Genome Wastes territory</div></div>
+      <button class="btn sm" data-faction-id="helix-collective">Pledge →</button>
+    </div>
+    <div class="faction-item" data-fid="synthesis-order">
+      <span class="faction-icon">⚗️</span>
+      <div class="faction-body"><div class="faction-nm">Synthesis Order</div><div class="faction-desc">Drug discovery &amp; chemistry · 38 members · Pharma Flats territory</div></div>
+      <button class="btn sm" data-faction-id="synthesis-order">Pledge →</button>
+    </div>
+    <div class="faction-item" data-fid="genome-pioneers">
+      <span class="faction-icon">🔭</span>
+      <div class="faction-body"><div class="faction-nm">Genome Pioneers</div><div class="faction-desc">Sequencing &amp; genomics · 29 members · Data Expanse territory</div></div>
+      <button class="btn sm" data-faction-id="genome-pioneers">Pledge →</button>
+    </div>
+    <div class="faction-item" data-fid="eco-vanguard">
+      <span class="faction-icon">🌿</span>
+      <div class="faction-body"><div class="faction-nm">Eco Vanguard</div><div class="faction-desc">Environmental &amp; ecology · 31 members · Green Frontier territory</div></div>
+      <button class="btn sm" data-faction-id="eco-vanguard">Pledge →</button>
+    </div>
+  </div>
+</div>
+
 <div class="lbl">Available Labs</div>
 <div id="lab-list">
   <div class="lab-item">
@@ -741,7 +1129,28 @@ function getViewContent(viewId: string): string {
 </div>
 <div class="hr"></div>
 <div class="lbl">Publish Your Tool</div>
-<button class="btn p full" onclick="sendToHost('publishTool',{name:'My Pipeline',price:50})">+ Publish New Tool</button>`;
+<button class="btn p full" onclick="sendToHost('publishTool',{name:'My Pipeline',price:50})">+ Publish New Tool</button>
+
+<div class="hr"></div>
+<div class="card">
+  <div class="ch"><h2>🤝 Barter &amp; Trade</h2><span style="font-size:0.68em;opacity:0.45">resource exchange</span></div>
+  <p style="font-size:0.77em;opacity:0.6;margin-bottom:7px">Trade gathered resources with other scientists. Offer what you have, request what you need.</p>
+  <div class="row sp">
+    <select id="tradeOffer" style="flex:1"><option>Bio-Samples</option><option>Data Fragments</option><option>Reagent Packs</option><option>Compute Cores</option><option>Gene Sequences</option></select>
+    <input id="tradeOfferQty" placeholder="Qty" style="width:50px;flex:0 0 50px" value="1" />
+  </div>
+  <div style="font-size:0.72em;opacity:0.45;text-align:center;margin-bottom:4px">↕ exchange for ↕</div>
+  <div class="row sp">
+    <select id="tradeWant" style="flex:1"><option>Bio-Samples</option><option>Data Fragments</option><option>Reagent Packs</option><option>Compute Cores</option><option>Gene Sequences</option></select>
+    <input id="tradeWantQty" placeholder="Qty" style="width:50px;flex:0 0 50px" value="1" />
+  </div>
+  <button class="btn p full" id="postTradeBtn">Post Trade Offer</button>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>📋 Active Trades</h2></div>
+  <div id="tradeBoard"><p class="dim">No active trade offers — post one above!</p></div>
+</div>`;
 
     // ── Agents ─────────────────────────────────────────────────
     case 'agents':
@@ -811,6 +1220,120 @@ function getViewContent(viewId: string): string {
 <div class="card">
   <div class="ch"><h2>Experiment Log</h2></div>
   <div id="experimentLog"><p style="opacity:0.4;font-style:italic">No experiments run yet.</p></div>
+</div>`;
+
+    // ── World & Outposts ──────────────────────────────────────
+    case 'world':
+      return /* html */ `
+<div class="ph"><span class="ph-icon">🌍</span><span class="ph-title">World &amp; Outposts</span><span class="ph-dot"></span></div>
+<p style="font-size:0.8em;opacity:0.6;margin-bottom:8px">Explore the BioWorld wasteland. Gather resources, discover outposts, and stake territory for your faction.</p>
+
+<div class="card">
+  <div class="ch"><h2>🗺️ Exploration Regions</h2><span style="font-size:0.68em;opacity:0.45">gather resources</span></div>
+  <p style="font-size:0.77em;opacity:0.6;margin-bottom:7px">Each region yields different resources. Scout a region to gather what you need for experiments and trades.</p>
+
+  <div class="region-card">
+    <div class="region-hdr"><span>🧬</span><span class="region-nm">Genome Wastes</span><span class="bdg bdg-beginner">Low Risk</span></div>
+    <div class="region-res">
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="genome-wastes"
+        data-resource-type="Gene Sequences"
+      >🧬 Gene Sequences</span>
+      <span
+        class="bdg bdg-beginner"
+        data-region-id="genome-wastes"
+        data-resource-type="Bio-Samples"
+      >🧫 Bio-Samples</span>
+    </div>
+  </div>
+
+  <div class="region-card">
+    <div class="region-hdr"><span>💊</span><span class="region-nm">Pharma Flats</span><span class="bdg bdg-intermediate">Med Risk</span></div>
+    <div class="region-res">
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="pharma-flats"
+        data-resource-type="Reagent Packs"
+      >🧪 Reagent Packs</span>
+      <span
+        class="bdg bdg-beginner"
+        data-region-id="pharma-flats"
+        data-resource-type="Data Fragments"
+      >💾 Data Fragments</span>
+    </div>
+  </div>
+
+  <div class="region-card">
+    <div class="region-hdr"><span>⚡</span><span class="region-nm">Data Expanse</span><span class="bdg bdg-advanced">High Risk</span></div>
+    <div class="region-res">
+      <span
+        class="bdg bdg-advanced"
+        data-region-id="data-expanse"
+        data-resource-type="Compute Cores"
+      >⚡ Compute Cores</span>
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="data-expanse"
+        data-resource-type="Data Fragments"
+      >💾 Data Fragments</span>
+    </div>
+  </div>
+
+  <div class="region-card">
+    <div class="region-hdr"><span>🌿</span><span class="region-nm">Green Frontier</span><span class="bdg bdg-beginner">Low Risk</span></div>
+    <div class="region-res">
+      <span
+        class="bdg bdg-beginner"
+        data-region-id="green-frontier"
+        data-resource-type="Bio-Samples"
+      >🧫 Bio-Samples</span>
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="green-frontier"
+        data-resource-type="Reagent Packs"
+      >🧪 Reagent Packs</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>🏕️ Outposts</h2><span style="font-size:0.68em;opacity:0.45">Discord &amp; web hubs</span></div>
+  <p style="font-size:0.77em;opacity:0.6;margin-bottom:7px">Outposts are community hubs — Discord servers, websites, and forums where scientists trade, collaborate, and share discoveries.</p>
+  <div id="outposts">
+    <div class="outpost-item">
+      <span class="outpost-icon">💬</span>
+      <div class="outpost-body"><div class="outpost-nm">BioWorld Discord HQ</div><div class="outpost-desc">Main community hub · 1,200 members · Trade channel active</div></div>
+      <button class="btn sm" data-outpost-id="discord-hq">Scout →</button>
+    </div>
+    <div class="outpost-item">
+      <span class="outpost-icon">🌐</span>
+      <div class="outpost-body"><div class="outpost-nm">Open Science Forum</div><div class="outpost-desc">Web outpost · Peer review &amp; bounties · Data Fragments cache</div></div>
+      <button class="btn sm" data-outpost-id="open-science">Scout →</button>
+    </div>
+    <div class="outpost-item">
+      <span class="outpost-icon">🔬</span>
+      <div class="outpost-body"><div class="outpost-nm">Citizen Lab Network</div><div class="outpost-desc">Community labs · Progression milestones · Funding proposals</div></div>
+      <button class="btn sm" data-outpost-id="citizen-lab">Scout →</button>
+    </div>
+    <div class="outpost-item">
+      <span class="outpost-icon">📡</span>
+      <div class="outpost-body"><div class="outpost-nm">Frontier Relay Station</div><div class="outpost-desc">Remote outpost · Rare Compute Core trades · Eco Vanguard territory</div></div>
+      <button class="btn sm" data-outpost-id="frontier-relay">Scout →</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>📦 Field Inventory</h2></div>
+  <div id="inventory">
+    <p class="dim" style="padding:4px">Gather resources from regions above to fill your inventory.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ch"><h2>Exploration Log</h2></div>
+  <div id="experimentLog"><p style="opacity:0.4;font-style:italic">No expeditions yet — scout a region to begin.</p></div>
 </div>`;
 
     default:
