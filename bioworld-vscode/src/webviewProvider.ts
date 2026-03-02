@@ -113,7 +113,7 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
             return;
           }
           if (errEl) { errEl.style.display = 'none'; }
-          sendToHost('runExperiment', { type, params: JSON.stringify(params) });
+          sendToHost('runExperiment', { type, params });
         });
       }
     })();
