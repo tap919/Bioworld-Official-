@@ -286,9 +286,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Open the Learning Center
   context.subscriptions.push(
-    vscode.commands.registerCommand('bioworld.openLearning', () => {
+    vscode.commands.registerCommand('bioworld.openLearning', async () => {
+      await vscode.commands.executeCommand('bioworld.learning.focus');
       socket?.emit('openLearning');
-      providers.get('learning')?.postMessage({ cmd: 'showLearning' });
     })
   );
 }
