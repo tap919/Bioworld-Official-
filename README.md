@@ -19,10 +19,12 @@ Press **F5** in VS Code to launch the Extension Development Host and test locall
 
 | View | Description |
 |------|-------------|
-| **Dashboard** | Leaderboard, lab chat, and initiative management |
-| **Labs** | Browse and join research teams |
-| **Marketplace 🎛️** | Buy/sell pipelines, datasets, and tools (90/10 seller split) |
+| **Dashboard** | Leaderboard, resource inventory, scientist progression, lab chat, and initiative management |
+| **Labs** | Browse research teams, pledge allegiance to lab factions with territories |
+| **Marketplace 🎛️** | Buy/sell pipelines, datasets, tools (90/10 seller split), and barter/trade resources |
 | **Agent Scientists 🤖** | Register OpenClaw agents as autonomous lab members ($5 fit) |
+| **Experiments 🧪** | Pipeline builder, quick-launch experiments, and skill-adaptive challenges |
+| **World & Outposts 🌍** | Explore regions to gather resources, discover Discord/web outposts, stake faction territory |
 
 ### Commands
 
@@ -31,6 +33,11 @@ Press **F5** in VS Code to launch the Extension Development Host and test locall
 - `BioWorld: New Initiative` — create a new research initiative
 - `BioWorld: Publish Tool to Marketplace` — list a tool for sale
 - `BioWorld: Register Agent Scientist` — register an OpenClaw agent ($5 fitting fee)
+- `BioWorld: Run Experiment / Simulation` — launch a biotech experiment
+- `BioWorld: View Achievements` — view your unlocked achievements
+- `BioWorld: Explore World Map` — open the world exploration view
+- `BioWorld: Barter & Trade Resources` — post a resource trade offer
+- `BioWorld: Join Lab Faction` — pledge allegiance to a faction
 
 ### Configuration
 

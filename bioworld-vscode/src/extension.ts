@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const providers = new Map<string, BioWorldWebviewProvider>();
 
   // Register webview providers for each sidebar view
-  const viewIds = ['dashboard', 'labs', 'marketplace', 'agents', 'experiments'] as const;
+  const viewIds = ['dashboard', 'labs', 'marketplace', 'agents', 'experiments', 'world'] as const;
   for (const viewId of viewIds) {
     const provider = new BioWorldWebviewProvider(context.extensionUri, viewId, socketUrl);
     providers.set(viewId, provider);
@@ -60,6 +60,35 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       socket.on('experimentResult', (data: unknown) => {
         providers.get('experiments')?.postMessage({ cmd: 'experimentResult', ...toRecord(data) });
+      });
+
+      // Relay world / exploration events
+      socket.on('resourceGathered', (data: unknown) => {
+        providers.get('world')?.postMessage({ cmd: 'resourceGathered', ...toRecord(data) });
+        providers.get('dashboard')?.postMessage({ cmd: 'resourceGathered', ...toRecord(data) });
+      });
+      socket.on('outpostDiscovered', (data: unknown) => {
+        providers.get('world')?.postMessage({ cmd: 'outpostDiscovered', ...toRecord(data) });
+      });
+      socket.on('outpostUpdate', (data: unknown) => {
+        providers.get('world')?.postMessage({ cmd: 'outpostUpdate', ...toRecord(data) });
+      });
+      socket.on('factionUpdate', (data: unknown) => {
+        providers.get('labs')?.postMessage({ cmd: 'factionUpdate', ...toRecord(data) });
+        providers.get('world')?.postMessage({ cmd: 'factionUpdate', ...toRecord(data) });
+      });
+      socket.on('tradeOffer', (data: unknown) => {
+        providers.get('marketplace')?.postMessage({ cmd: 'tradeOffer', ...toRecord(data) });
+      });
+      socket.on('tradeComplete', (data: unknown) => {
+        providers.get('marketplace')?.postMessage({ cmd: 'tradeComplete', ...toRecord(data) });
+      });
+      socket.on('inventoryUpdate', (data: unknown) => {
+        providers.get('dashboard')?.postMessage({ cmd: 'inventoryUpdate', ...toRecord(data) });
+        providers.get('world')?.postMessage({ cmd: 'inventoryUpdate', ...toRecord(data) });
+      });
+      socket.on('progressionUpdate', (data: unknown) => {
+        providers.get('dashboard')?.postMessage({ cmd: 'progressionUpdate', ...toRecord(data) });
       });
 
       // Relay agent tasks to OpenClaw gateway
@@ -178,6 +207,51 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('bioworld.viewAchievements', () => {
       socket?.emit('getAchievements');
       providers.get('dashboard')?.postMessage({ cmd: 'showAchievements' });
+    })
+  );
+
+  // Explore the world map
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bioworld.exploreWorld', () => {
+      socket?.emit('exploreWorld');
+      providers.get('world')?.postMessage({ cmd: 'explore' });
+    })
+  );
+
+  // Barter & trade resources
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bioworld.tradeResources', async () => {
+      const resource = await vscode.window.showQuickPick(
+        ['Bio-Samples', 'Data Fragments', 'Reagent Packs', 'Compute Cores', 'Gene Sequences'],
+        { placeHolder: 'Select resource to trade' },
+      );
+      if (!resource) {
+        return;
+      }
+      const qtyStr = await vscode.window.showInputBox({ prompt: 'Quantity to offer', value: '1' });
+      const qty = parseInt(qtyStr || '1', 10);
+      socket?.emit('tradeOffer', { resource, qty });
+      vscode.window.showInformationMessage(`Trade offer posted: ${qty}× ${resource}`);
+    })
+  );
+
+  // Join a lab faction
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bioworld.joinFaction', async () => {
+      const factions = [
+        'Helix Collective — CRISPR & gene editing',
+        'Synthesis Order — drug discovery & chemistry',
+        'Genome Pioneers — sequencing & genomics',
+        'Eco Vanguard — environmental & ecology',
+      ];
+      const choice = await vscode.window.showQuickPick(factions, { placeHolder: 'Choose your lab faction' });
+      if (!choice) {
+        return;
+      }
+      const factionId = choice.split('—')[0].trim().toLowerCase().replace(/\s+/g, '-');
+      socket?.emit('joinFaction', { factionId });
+      providers.get('labs')?.postMessage({ cmd: 'factionJoined', factionId });
+      vscode.window.showInformationMessage(`Joined faction: ${choice.split('—')[0].trim()}`);
     })
   );
 }
