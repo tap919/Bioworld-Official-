@@ -791,11 +791,23 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         '<div class="faction-body">' +
         '<div class="faction-nm">' + esc(f.name) + '</div>' +
         '<div class="faction-desc">' + esc(f.members || 0) + ' members · ' + esc(f.territory || '—') + '</div></div>' +
-        '<button class="btn sm" onclick="sendToHost(\'joinFaction\',{factionId:\'' + esc(f.id) + '\'})">Pledge →</button>' +
+        '<button class="btn sm" data-faction-id="' + esc(f.id) + '">Pledge →</button>' +
         '</div>'
       ).join('');
     }
 
+    const factionsRoot = document.getElementById('factions');
+    if (factionsRoot) {
+      factionsRoot.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-faction-id]');
+        if (!btn || !factionsRoot.contains(btn)) return;
+        const factionId = btn.getAttribute('data-faction-id');
+        if (!factionId) return;
+        sendToHost('joinFaction', { factionId: factionId });
+      });
+    }
     function highlightFaction(factionId) {
       document.querySelectorAll('.faction-item').forEach(el => {
         el.style.borderColor = (el.dataset.fid === factionId)
