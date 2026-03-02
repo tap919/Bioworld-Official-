@@ -445,7 +445,12 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     }
 
     function completeExp(type, result) {
-      const exp = Object.values(activeExps).find(e => e.type === type);
+      // Among all non-done runs of this type, complete the most recently started one.
+      // This handles simultaneous runs of the same experiment type correctly.
+      // IDs are Date.now() timestamps, so higher id === more recently started.
+      const exp = Object.values(activeExps)
+        .filter(e => e.type === type && !e.done)
+        .reduce((latest, e) => (!latest || e.id > latest.id) ? e : latest, null);
       if (exp) {
         if (exp.iv) {
           clearInterval(exp.iv);
@@ -455,7 +460,7 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         renderExps();
         setTimeout(() => { delete activeExps[exp.id]; renderExps(); }, COMPLETED_EXP_DISPLAY_DURATION_MS);
       }
-      logLine('✅ Complete: ' + type + (result ? ' — ' + JSON.stringify(result) : ''));
+      logLine('✅ Complete [' + type + ']' + (result ? ' — ' + JSON.stringify(result) : ''));
     }
 
     function renderExps() {
