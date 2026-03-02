@@ -1269,24 +1269,47 @@ function getViewContent(viewId: string): string {
     <div class="outpost-item">
       <span class="outpost-icon">💬</span>
       <div class="outpost-body"><div class="outpost-nm">BioWorld Discord HQ</div><div class="outpost-desc">Main community hub · 1,200 members · Trade channel active</div></div>
-      <button class="btn sm" onclick="sendToHost('scoutOutpost',{outpostId:'discord-hq'})">Scout →</button>
+      <button class="btn sm" data-outpost-id="discord-hq">Scout →</button>
     </div>
     <div class="outpost-item">
       <span class="outpost-icon">🌐</span>
       <div class="outpost-body"><div class="outpost-nm">Open Science Forum</div><div class="outpost-desc">Web outpost · Peer review &amp; bounties · Data Fragments cache</div></div>
-      <button class="btn sm" onclick="sendToHost('scoutOutpost',{outpostId:'open-science'})">Scout →</button>
+      <button class="btn sm" data-outpost-id="open-science">Scout →</button>
     </div>
     <div class="outpost-item">
       <span class="outpost-icon">🔬</span>
       <div class="outpost-body"><div class="outpost-nm">Citizen Lab Network</div><div class="outpost-desc">Community labs · Progression milestones · Funding proposals</div></div>
-      <button class="btn sm" onclick="sendToHost('scoutOutpost',{outpostId:'citizen-lab'})">Scout →</button>
+      <button class="btn sm" data-outpost-id="citizen-lab">Scout →</button>
     </div>
     <div class="outpost-item">
       <span class="outpost-icon">📡</span>
       <div class="outpost-body"><div class="outpost-nm">Frontier Relay Station</div><div class="outpost-desc">Remote outpost · Rare Compute Core trades · Eco Vanguard territory</div></div>
-      <button class="btn sm" onclick="sendToHost('scoutOutpost',{outpostId:'frontier-relay'})">Scout →</button>
+      <button class="btn sm" data-outpost-id="frontier-relay">Scout →</button>
     </div>
   </div>
+  <script nonce="${nonce}">
+    (function () {
+      const outpostsEl = document.getElementById('outposts');
+      if (!outpostsEl) {
+        return;
+      }
+      outpostsEl.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        const button = target.closest('button[data-outpost-id]');
+        if (!button) {
+          return;
+        }
+        const outpostId = button.getAttribute('data-outpost-id');
+        if (!outpostId || typeof sendToHost !== 'function') {
+          return;
+        }
+        sendToHost('scoutOutpost', { outpostId: outpostId });
+      });
+    })();
+  </script>
 </div>
 
 <div class="card">
