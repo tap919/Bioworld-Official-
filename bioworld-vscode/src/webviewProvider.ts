@@ -542,14 +542,16 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         const bio       = document.getElementById('profileBioInput')?.value?.trim() || '';
         const selOpt    = document.querySelector('.avatar-opt.sel');
         const avatar    = (selOpt instanceof HTMLElement ? selOpt.dataset.avatar : null) || '🔬';
-        if (name) {
-          const nameEl = document.getElementById('profileName');
-          const specEl = document.getElementById('profileSpecialty');
-          const avEl   = document.getElementById('profileAvatar');
-          if (nameEl) nameEl.textContent = name;
-          if (specEl) specEl.textContent = specialty;
-          if (avEl)   avEl.textContent   = avatar;
+        // Require a non-empty name before updating profile/header to keep UI and backend in sync
+        if (!name) {
+          return;
         }
+        const nameEl = document.getElementById('profileName');
+        const specEl = document.getElementById('profileSpecialty');
+        const avEl   = document.getElementById('profileAvatar');
+        if (nameEl) nameEl.textContent = name;
+        if (specEl) specEl.textContent = specialty;
+        if (avEl)   avEl.textContent   = avatar;
         sendToHost('updateProfile', { name, specialty, bio, avatar });
         const msg = document.getElementById('profileSaveMsg');
         if (msg) { msg.classList.remove('hidden'); setTimeout(function() { msg.classList.add('hidden'); }, 2500); }
