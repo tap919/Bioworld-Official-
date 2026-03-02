@@ -700,9 +700,26 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       const el = document.getElementById('inventory');
       if (!el) return;
       const safeQty = parseInt(qty, 10) || 0;
+
+      // Try to update an existing row for this resource instead of appending a duplicate
+      const existingRows = el.querySelectorAll('.resource-row');
+      for (let i = 0; i < existingRows.length; i++) {
+        const nameEl = existingRows[i].querySelector('.res-name');
+        if (nameEl && nameEl.textContent === resource) {
+          const qtyEl = existingRows[i].querySelector('.res-qty');
+          if (qtyEl) {
+            const current = parseInt(qtyEl.textContent, 10) || 0;
+            qtyEl.textContent = String(current + safeQty);
+          }
+          logLine('📦 Gathered ' + safeQty + '× ' + resource);
+          return;
+        }
+      }
+
+      // No existing row — create a new one
       const row = document.createElement('div');
       row.className = 'resource-row';
-      row.innerHTML = '<span class="res-name">' + esc(resource) + '</span><span class="res-qty">+' + esc(safeQty) + '</span>';
+      row.innerHTML = '<span class="res-name">' + esc(resource) + '</span><span class="res-qty">' + esc(safeQty) + '</span>';
       el.appendChild(row);
       logLine('📦 Gathered ' + safeQty + '× ' + resource);
     }
@@ -817,6 +834,47 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     }
 
     // ── Trade / barter helpers ────────────────────────────────
+    const tradeBoardRoot = document.getElementById('tradeBoard');
+    if (tradeBoardRoot) {
+      tradeBoardRoot.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-trade-id]');
+        if (!btn || !tradeBoardRoot.contains(btn)) return;
+        const tradeId = btn.getAttribute('data-trade-id');
+        if (!tradeId) return;
+        sendToHost('acceptTrade', { tradeId: tradeId });
+      });
+    }
+
+    // ── World region resource gathering (delegated) ───────────
+    document.querySelectorAll('.region-res').forEach(function (container) {
+      container.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const badge = target.closest('.bdg[data-region-id]');
+        if (!badge) return;
+        const regionId = badge.getAttribute('data-region-id');
+        const resourceType = badge.getAttribute('data-resource-type');
+        if (!regionId || !resourceType) return;
+        sendToHost('gatherResource', { regionId: regionId, resourceType: resourceType });
+      });
+    });
+
+    // ── World outpost scouting (delegated) ────────────────────
+    const outpostsRoot = document.getElementById('outposts');
+    if (outpostsRoot) {
+      outpostsRoot.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-outpost-id]');
+        if (!btn || !outpostsRoot.contains(btn)) return;
+        const outpostId = btn.getAttribute('data-outpost-id');
+        if (!outpostId) return;
+        sendToHost('scoutOutpost', { outpostId: outpostId });
+      });
+    }
+
     function appendTradeOffer(offer) {
       const el = document.getElementById('tradeBoard');
       if (!el) return;
@@ -828,7 +886,7 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         '<p style="font-size:0.77em;opacity:0.72;margin-bottom:5px">Offering ' +
         esc(offer.qty || 1) + '× ' + esc(offer.resource || '?') +
         (offer.wantResource ? ' for ' + esc(offer.wantQty || '?') + '× ' + esc(offer.wantResource) : '') + '</p>' +
-        '<button class="btn sm p" onclick="sendToHost(\'acceptTrade\',{tradeId:\'' + esc(offer.tradeId || '') + '\'})">Accept Trade</button>';
+        '<button class="btn sm p" data-trade-id="' + esc(offer.tradeId || '') + '">Accept Trade</button>';
       el.prepend(d);
     }
 
@@ -1004,22 +1062,22 @@ function getViewContent(viewId: string): string {
     <div class="faction-item" data-fid="helix-collective">
       <span class="faction-icon">🧬</span>
       <div class="faction-body"><div class="faction-nm">Helix Collective</div><div class="faction-desc">CRISPR &amp; gene editing · 42 members · Genome Wastes territory</div></div>
-      <button class="btn sm" onclick="sendToHost('joinFaction',{factionId:'helix-collective'})">Pledge →</button>
+      <button class="btn sm" data-faction-id="helix-collective">Pledge →</button>
     </div>
     <div class="faction-item" data-fid="synthesis-order">
       <span class="faction-icon">⚗️</span>
       <div class="faction-body"><div class="faction-nm">Synthesis Order</div><div class="faction-desc">Drug discovery &amp; chemistry · 38 members · Pharma Flats territory</div></div>
-      <button class="btn sm" onclick="sendToHost('joinFaction',{factionId:'synthesis-order'})">Pledge →</button>
+      <button class="btn sm" data-faction-id="synthesis-order">Pledge →</button>
     </div>
     <div class="faction-item" data-fid="genome-pioneers">
       <span class="faction-icon">🔭</span>
       <div class="faction-body"><div class="faction-nm">Genome Pioneers</div><div class="faction-desc">Sequencing &amp; genomics · 29 members · Data Expanse territory</div></div>
-      <button class="btn sm" onclick="sendToHost('joinFaction',{factionId:'genome-pioneers'})">Pledge →</button>
+      <button class="btn sm" data-faction-id="genome-pioneers">Pledge →</button>
     </div>
     <div class="faction-item" data-fid="eco-vanguard">
       <span class="faction-icon">🌿</span>
       <div class="faction-body"><div class="faction-nm">Eco Vanguard</div><div class="faction-desc">Environmental &amp; ecology · 31 members · Green Frontier territory</div></div>
-      <button class="btn sm" onclick="sendToHost('joinFaction',{factionId:'eco-vanguard'})">Pledge →</button>
+      <button class="btn sm" data-faction-id="eco-vanguard">Pledge →</button>
     </div>
   </div>
 </div>
@@ -1238,37 +1296,6 @@ function getViewContent(viewId: string): string {
   </div>
 </div>
 
-<script nonce="${nonce}">
-  window.addEventListener('DOMContentLoaded', () => {
-    const resourceContainers = document.querySelectorAll<HTMLElement>('.region-res');
-    resourceContainers.forEach(container => {
-      container.addEventListener('click', event => {
-        const target = event.target as HTMLElement | null;
-        if (!target) {
-          return;
-        }
-
-        const badge = target.closest<HTMLElement>('.bdg');
-        if (!badge) {
-          return;
-        }
-
-        const regionId = badge.getAttribute('data-region-id');
-        const resourceType = badge.getAttribute('data-resource-type');
-
-        if (!regionId || !resourceType) {
-          return;
-        }
-
-        // Delegate to the existing host communication helper.
-        sendToHost('gatherResource', {
-          regionId,
-          resourceType,
-        });
-      });
-    });
-  });
-</script>
 <div class="card">
   <div class="ch"><h2>🏕️ Outposts</h2><span style="font-size:0.68em;opacity:0.45">Discord &amp; web hubs</span></div>
   <p style="font-size:0.77em;opacity:0.6;margin-bottom:7px">Outposts are community hubs — Discord servers, websites, and forums where scientists trade, collaborate, and share discoveries.</p>
@@ -1294,29 +1321,6 @@ function getViewContent(viewId: string): string {
       <button class="btn sm" data-outpost-id="frontier-relay">Scout →</button>
     </div>
   </div>
-  <script nonce="${nonce}">
-    (function () {
-      const outpostsEl = document.getElementById('outposts');
-      if (!outpostsEl) {
-        return;
-      }
-      outpostsEl.addEventListener('click', function (event) {
-        const target = event.target;
-        if (!(target instanceof HTMLElement)) {
-          return;
-        }
-        const button = target.closest('button[data-outpost-id]');
-        if (!button) {
-          return;
-        }
-        const outpostId = button.getAttribute('data-outpost-id');
-        if (!outpostId || typeof sendToHost !== 'function') {
-          return;
-        }
-        sendToHost('scoutOutpost', { outpostId: outpostId });
-      });
-    })();
-  </script>
 </div>
 
 <div class="card">
