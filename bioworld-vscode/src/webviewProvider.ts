@@ -169,7 +169,6 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         }
         break;
       }
-        break;
       case 'buyTool':
         this.socket?.emit('buyTool', { listingId: msg.listingId });
         break;
