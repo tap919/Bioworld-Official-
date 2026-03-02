@@ -113,6 +113,8 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
             return;
           }
           if (errEl) { errEl.style.display = 'none'; }
+          // Immediately reflect that the experiment has been started in the UI.
+          appendExperimentLog(type || 'Experiment', '⏳ Started:', '');
           sendToHost('runExperiment', { type, params });
         });
       }
