@@ -1255,14 +1255,14 @@ function getViewContent(viewId: string): string {
     </select>
     <div class="lbl" style="margin-bottom:3px">Avatar</div>
     <div class="avatar-grid">
-      <span class="avatar-opt sel" data-avatar="🔬">🔬</span>
-      <span class="avatar-opt" data-avatar="🧬">🧬</span>
-      <span class="avatar-opt" data-avatar="⚗️">⚗️</span>
-      <span class="avatar-opt" data-avatar="🧪">🧪</span>
-      <span class="avatar-opt" data-avatar="💊">💊</span>
-      <span class="avatar-opt" data-avatar="🌿">🌿</span>
-      <span class="avatar-opt" data-avatar="🤖">🤖</span>
-      <span class="avatar-opt" data-avatar="🦠">🦠</span>
+      <button type="button" class="avatar-opt sel" data-avatar="🔬" aria-pressed="true">🔬</button>
+      <button type="button" class="avatar-opt" data-avatar="🧬" aria-pressed="false">🧬</button>
+      <button type="button" class="avatar-opt" data-avatar="⚗️" aria-pressed="false">⚗️</button>
+      <button type="button" class="avatar-opt" data-avatar="🧪" aria-pressed="false">🧪</button>
+      <button type="button" class="avatar-opt" data-avatar="💊" aria-pressed="false">💊</button>
+      <button type="button" class="avatar-opt" data-avatar="🌿" aria-pressed="false">🌿</button>
+      <button type="button" class="avatar-opt" data-avatar="🤖" aria-pressed="false">🤖</button>
+      <button type="button" class="avatar-opt" data-avatar="🦠" aria-pressed="false">🦠</button>
     </div>
     <div class="lbl" style="margin-bottom:3px">Bio</div>
     <textarea id="profileBioInput" rows="2" placeholder="Passionate about biotech…" class="sp"></textarea>
