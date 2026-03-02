@@ -1169,36 +1169,99 @@ function getViewContent(viewId: string): string {
   <div class="region-card">
     <div class="region-hdr"><span>🧬</span><span class="region-nm">Genome Wastes</span><span class="bdg bdg-beginner">Low Risk</span></div>
     <div class="region-res">
-      <span class="bdg bdg-intermediate" onclick="sendToHost('gatherResource',{regionId:'genome-wastes',resourceType:'Gene Sequences'})">🧬 Gene Sequences</span>
-      <span class="bdg bdg-beginner" onclick="sendToHost('gatherResource',{regionId:'genome-wastes',resourceType:'Bio-Samples'})">🧫 Bio-Samples</span>
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="genome-wastes"
+        data-resource-type="Gene Sequences"
+      >🧬 Gene Sequences</span>
+      <span
+        class="bdg bdg-beginner"
+        data-region-id="genome-wastes"
+        data-resource-type="Bio-Samples"
+      >🧫 Bio-Samples</span>
     </div>
   </div>
 
   <div class="region-card">
     <div class="region-hdr"><span>💊</span><span class="region-nm">Pharma Flats</span><span class="bdg bdg-intermediate">Med Risk</span></div>
     <div class="region-res">
-      <span class="bdg bdg-intermediate" onclick="sendToHost('gatherResource',{regionId:'pharma-flats',resourceType:'Reagent Packs'})">🧪 Reagent Packs</span>
-      <span class="bdg bdg-beginner" onclick="sendToHost('gatherResource',{regionId:'pharma-flats',resourceType:'Data Fragments'})">💾 Data Fragments</span>
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="pharma-flats"
+        data-resource-type="Reagent Packs"
+      >🧪 Reagent Packs</span>
+      <span
+        class="bdg bdg-beginner"
+        data-region-id="pharma-flats"
+        data-resource-type="Data Fragments"
+      >💾 Data Fragments</span>
     </div>
   </div>
 
   <div class="region-card">
     <div class="region-hdr"><span>⚡</span><span class="region-nm">Data Expanse</span><span class="bdg bdg-advanced">High Risk</span></div>
     <div class="region-res">
-      <span class="bdg bdg-advanced" onclick="sendToHost('gatherResource',{regionId:'data-expanse',resourceType:'Compute Cores'})">⚡ Compute Cores</span>
-      <span class="bdg bdg-intermediate" onclick="sendToHost('gatherResource',{regionId:'data-expanse',resourceType:'Data Fragments'})">💾 Data Fragments</span>
+      <span
+        class="bdg bdg-advanced"
+        data-region-id="data-expanse"
+        data-resource-type="Compute Cores"
+      >⚡ Compute Cores</span>
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="data-expanse"
+        data-resource-type="Data Fragments"
+      >💾 Data Fragments</span>
     </div>
   </div>
 
   <div class="region-card">
     <div class="region-hdr"><span>🌿</span><span class="region-nm">Green Frontier</span><span class="bdg bdg-beginner">Low Risk</span></div>
     <div class="region-res">
-      <span class="bdg bdg-beginner" onclick="sendToHost('gatherResource',{regionId:'green-frontier',resourceType:'Bio-Samples'})">🧫 Bio-Samples</span>
-      <span class="bdg bdg-intermediate" onclick="sendToHost('gatherResource',{regionId:'green-frontier',resourceType:'Reagent Packs'})">🧪 Reagent Packs</span>
+      <span
+        class="bdg bdg-beginner"
+        data-region-id="green-frontier"
+        data-resource-type="Bio-Samples"
+      >🧫 Bio-Samples</span>
+      <span
+        class="bdg bdg-intermediate"
+        data-region-id="green-frontier"
+        data-resource-type="Reagent Packs"
+      >🧪 Reagent Packs</span>
     </div>
   </div>
 </div>
 
+<script nonce="${nonce}">
+  window.addEventListener('DOMContentLoaded', () => {
+    const resourceContainers = document.querySelectorAll<HTMLElement>('.region-res');
+    resourceContainers.forEach(container => {
+      container.addEventListener('click', event => {
+        const target = event.target as HTMLElement | null;
+        if (!target) {
+          return;
+        }
+
+        const badge = target.closest<HTMLElement>('.bdg');
+        if (!badge) {
+          return;
+        }
+
+        const regionId = badge.getAttribute('data-region-id');
+        const resourceType = badge.getAttribute('data-resource-type');
+
+        if (!regionId || !resourceType) {
+          return;
+        }
+
+        // Delegate to the existing host communication helper.
+        sendToHost('gatherResource', {
+          regionId,
+          resourceType,
+        });
+      });
+    });
+  });
+</script>
 <div class="card">
   <div class="ch"><h2>🏕️ Outposts</h2><span style="font-size:0.68em;opacity:0.45">Discord &amp; web hubs</span></div>
   <p style="font-size:0.77em;opacity:0.6;margin-bottom:7px">Outposts are community hubs — Discord servers, websites, and forums where scientists trade, collaborate, and share discoveries.</p>
