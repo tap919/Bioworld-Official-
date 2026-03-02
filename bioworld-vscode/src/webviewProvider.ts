@@ -422,17 +422,36 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       logLine('⏳ Started: ' + type);
       renderExps();
       const iv = setInterval(() => {
-        if (!activeExps[id]) { clearInterval(iv); return; }
-        activeExps[id].pct = Math.min(MAX_SIMULATED_PROGRESS, activeExps[id].pct + Math.random() * MAX_PROGRESS_INCREMENT + MIN_PROGRESS_INCREMENT);
+        const exp = activeExps[id];
+        if (!exp) {
+          clearInterval(iv);
+          return;
+        }
+        if (exp.done) {
+          clearInterval(iv);
+          return;
+        }
+        exp.pct = Math.min(
+          MAX_SIMULATED_PROGRESS,
+          exp.pct + Math.random() * MAX_PROGRESS_INCREMENT + MIN_PROGRESS_INCREMENT
+        );
         renderExps();
-        if (activeExps[id].pct >= MAX_SIMULATED_PROGRESS) clearInterval(iv);
+        if (exp.pct >= MAX_SIMULATED_PROGRESS) {
+          clearInterval(iv);
+        }
       }, PROGRESS_UPDATE_INTERVAL_MS);
+      // Track interval handle on the experiment so we can cancel it on completion.
+      activeExps[id].iv = iv;
     }
 
     function completeExp(type, result) {
       const exp = Object.values(activeExps).find(e => e.type === type);
       if (exp) {
-        exp.pct = 100; exp.done = true;
+        if (exp.iv) {
+          clearInterval(exp.iv);
+        }
+        exp.pct = 100;
+        exp.done = true;
         renderExps();
         setTimeout(() => { delete activeExps[exp.id]; renderExps(); }, COMPLETED_EXP_DISPLAY_DURATION_MS);
       }
