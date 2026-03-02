@@ -1,0 +1,141 @@
+let's think marketplace.  People need to be able to seriously mod their systems. marketplace members pay $10 a month and keep 90% of revenue.  Theres no actual money reward,  just noted progress of scientific contribution so there's no real cheating in advancement of science.  manipulation of the business itself or undermining the system gets banned.
+
+BioWorld Marketplace enables serious IDE modding—players buy/sell extensions, pipelines, datasets—with $10/month seller tier (90/10 split), pure science progression (no cash rewards, just validated contributions), and strict anti‑cheat bans.[1]
+
+## Marketplace Model
+
+| Tier | Cost | Features | Revenue Share |
+|------|------|----------|---------------|
+| Free Buyer | $0 | Browse/buy tools, limited bounties. | N/A |
+| $5 Player | $5/mo | Premium missions, credit boosts. | N/A |
+| $10 Seller | $10/mo | List/sell mods, 90% revenue (you take 10%), priority search. | 90% to seller |
+| Lab Sponsor | Custom | Bulk buys, branded initiatives. | Negotiated |
+
+- **No cash science rewards**: Progress = peer‑reviewed contributions (e.g., "Validated Cas9 pipeline, +500 XP"). Cheating (fake data) = auto‑ban via anomaly detection.[2]
+- **Anti‑manipulation**: Server‑side validation for all submits; bans for undermining (e.g., spam listings).
+
+## Extension Marketplace Code (add to scaffold)
+
+### Update package.json (add view/command)
+```json
+{ "views": { "bioworld": [ ..., { "id": "marketplace", "name": "Marketplace 🎛️", "type": "webview" } ] },
+  "commands": [ ..., { "command": "bioworld.publishTool", "title": "Publish Tool to Marketplace" } ]
+}
+```
+
+### Enhanced webviewProvider.ts (Marketplace HTML/Logic)
+```typescript
+// In getHtmlForView('marketplace')
+function getViewContent(viewId: string) {
+  if (viewId === 'marketplace') return `
+    <div class="p-4 space-y-4">
+      <h1 class="text-2xl">BioWorld Marketplace</h1>
+      <div id="search"><input id="searchInput" placeholder="Search pipelines, datasets..." class="w-full p-2 bg-gray-800 rounded"></div>
+      <div id="listings" class="grid grid-cols-3 gap-4"></div>
+      <div id="myListings"></div>
+      <button id="publishBtn" class="bg-green-500 p-2 rounded">Publish New Tool</button>
+    </div>
+    <script>
+      socket.on('marketUpdate', listings => renderListings(listings));
+      document.getElementById('publishBtn').onclick = () => {
+        const tool = { name: 'My Cas9 Pipeline', price: 50, description: '20% better specificity', github: 'tap919/cas9-pipe' };
+        socket.emit('publishTool', tool);
+      };
+    </script>`;
+}
+```
+
+### extension.ts Additions
+```typescript
+// Publish command
+vscode.commands.registerCommand('bioworld.publishTool', async () => {
+  const repo = await vscode.window.showInputBox({ prompt: 'GitHub Repo URL' });
+  const price = await vscode.window.showInputNumber({ prompt: 'Credits Price', value: 50 });
+  socket?.emit('publishTool', { repo, price, type: 'pipeline' });
+});
+
+// Seller check
+const isSeller = await checkSubscription('seller');  // Backend API call
+```
+
+## Backend Marketplace Logic (Cloudflare/Supabase)
+
+### Schema (Supabase tables)
+```sql
+-- listings
+CREATE TABLE listings (
+  id UUID PRIMARY KEY,
+  seller_id UUID REFERENCES users(id),
+  name TEXT,
+  description TEXT,
+  github_url TEXT,
+  price INTEGER,  -- credits
+  type TEXT,  -- 'extension', 'pipeline', 'dataset'
+  downloads INTEGER DEFAULT 0,
+  validated BOOLEAN DEFAULT FALSE  -- peer review
+);
+
+-- transactions (10% fee auto)
+CREATE TABLE transactions (
+  id UUID,
+  listing_id UUID,
+  buyer_id UUID,
+  seller_id UUID,
+  credits INTEGER,
+  fee INTEGER  -- 10% or 0 for free
+);
+
+-- contributions (science progress)
+CREATE TABLE contributions (
+  id UUID,
+  user_id UUID,
+  initiative TEXT,
+  score INTEGER,  -- validated impact
+  peer_votes INTEGER
+);
+```
+
+### Socket Events (server.ts)
+```typescript
+socket.on('publishTool', async (tool: Listing) => {
+  if (!await isSeller(socket.userId)) return socket.emit('error', 'Upgrade to $10 tier');
+  const listingId = await db.insert('listings', tool);
+  io.emit('marketUpdate', await getActiveListings());
+});
+
+socket.on('buyTool', async ({ listingId, buyerId }) => {
+  const listing = await db.get('listings', listingId);
+  const fee = Math.floor(listing.price * 0.1);
+  await db.insert('transactions', { listingId, buyerId, sellerId: listing.seller_id, credits: listing.price - fee });
+  await db.update('users', { id: listing.seller_id }, { credits: db.raw('credits + ?', listing.price * 0.9) });
+  socket.emit('purchaseSuccess', { autoInstall: listing.github_url });
+});
+
+socket.on('validateContribution', async ({ contribId, vote }) => {
+  // Tally peer votes → unlock XP if threshold met
+  const contrib = await db.get('contributions', contribId);
+  contrib.peer_votes += vote;
+  if (contrib.peer_votes > 10) {
+    await awardXP(contrib.user_id, contrib.score);
+    io.to(`initiative-${contrib.initiative}`).emit('leaderboardUpdate');
+  }
+});
+```
+
+### Anti‑Cheat
+- **Validation pipelines**: Server runs tests on submitted pipelines/datasets (e.g., run sim, check outputs).
+- **Anomaly detection**: Flag unusual submit patterns (e.g., 1000/day).
+- **Peer review**: Listings/Contributions need 5+ upvotes to "certified" status.
+- **Ban system**: `bans` table; WebSocket disconnects cheaters.
+
+## Modding Workflow
+1. Player forks your IDE/MuTracker → builds Cas9 pipeline.
+2. `bioworld.publishTool` → lists on marketplace (GitHub auto‑pull metadata).
+3. Buyer: "Buy" → credits deduct → auto‑install VSIX or git clone + reload.
+4. Use → submit results → peer‑voted progress.
+
+## Revenue Flow
+- Buyer pays credits (earned or $5‑bought).
+- Seller gets 90% credits → redeem for $ via Stripe (monthly).
+- You: 10% + $10 subs.
+
