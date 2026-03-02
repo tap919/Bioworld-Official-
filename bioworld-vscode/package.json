@@ -1,0 +1,99 @@
+{
+  "name": "bioworld",
+  "displayName": "BioWorld MMO",
+  "description": "Biotech research MMO in your IDE — social labs, marketplace, agent scientists, and real science pipelines powered by Monaco",
+  "version": "0.1.0",
+  "publisher": "bioworld",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bioworld",
+          "title": "BioWorld",
+          "icon": "media/logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "bioworld": [
+        {
+          "id": "bioworld.dashboard",
+          "name": "Dashboard",
+          "type": "webview"
+        },
+        {
+          "id": "bioworld.labs",
+          "name": "Labs",
+          "type": "webview"
+        },
+        {
+          "id": "bioworld.marketplace",
+          "name": "Marketplace 🎛️",
+          "type": "webview"
+        },
+        {
+          "id": "bioworld.agents",
+          "name": "Agent Scientists 🤖",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "bioworld.login",
+        "title": "BioWorld: Login"
+      },
+      {
+        "command": "bioworld.submitPipeline",
+        "title": "BioWorld: Submit Pipeline Result"
+      },
+      {
+        "command": "bioworld.newInitiative",
+        "title": "BioWorld: New Initiative"
+      },
+      {
+        "command": "bioworld.publishTool",
+        "title": "BioWorld: Publish Tool to Marketplace"
+      },
+      {
+        "command": "bioworld.registerAgent",
+        "title": "BioWorld: Register Agent Scientist"
+      }
+    ],
+    "configuration": {
+      "title": "BioWorld",
+      "properties": {
+        "bioworld.serverUrl": {
+          "type": "string",
+          "default": "wss://bioworld.yourdomain.com",
+          "description": "WebSocket server URL for BioWorld backend",
+          "scope": "application"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.2"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}
