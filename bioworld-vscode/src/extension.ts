@@ -27,6 +27,12 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!token) {
         return;
       }
+      // Disconnect any existing socket to avoid duplicate handlers on re-login.
+      if (socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+      }
+
       socket = io(socketUrl, { auth: { token } });
       socket.on('connect', () => {
         vscode.window.showInformationMessage('BioWorld: Connected!');

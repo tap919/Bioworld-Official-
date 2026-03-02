@@ -118,6 +118,15 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
           sendToHost('runExperiment', { type, params });
         });
       }
+
+      // Single delegated click handler for challenge Accept buttons — avoids
+      // re-binding individual listeners on every renderChallenges() call.
+      document.getElementById('challenges')?.addEventListener('click', event => {
+        const btn = (event.target)?.closest?.('button[data-challenge-id]');
+        if (btn) {
+          sendToHost('acceptChallenge', { challengeId: btn.dataset.challengeId });
+        }
+      });
     })();
 
     function handleHostMessage(msg) {
@@ -212,9 +221,6 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
         '<em>' + esc(c.reward) + ' XP reward</em>' +
         '<br><button class="btn" data-challenge-id="' + esc(c.id) + '">Accept</button></div>'
       ).join('');
-      el.querySelectorAll('button[data-challenge-id]').forEach(btn => {
-        btn.addEventListener('click', () => sendToHost('acceptChallenge', { challengeId: btn.dataset.challengeId }));
-      });
     }
 
     // ── Achievement helpers
