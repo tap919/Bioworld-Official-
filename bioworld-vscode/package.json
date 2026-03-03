@@ -55,6 +55,11 @@
           "id": "bioworld.world",
           "name": "World & Outposts 🌍",
           "type": "webview"
+        },
+        {
+          "id": "bioworld.learning",
+          "name": "Learning Center 📚",
+          "type": "webview"
         }
       ]
     },
@@ -98,6 +103,10 @@
       {
         "command": "bioworld.joinFaction",
         "title": "BioWorld: Join Lab Faction"
+      },
+      {
+        "command": "bioworld.openLearning",
+        "title": "BioWorld: Open Learning Center"
       }
     ],
     "configuration": {

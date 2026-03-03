@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const providers = new Map<string, BioWorldWebviewProvider>();
 
   // Register webview providers for each sidebar view
-  const viewIds = ['dashboard', 'labs', 'marketplace', 'agents', 'experiments', 'world'] as const;
+  const viewIds = ['dashboard', 'labs', 'marketplace', 'agents', 'experiments', 'world', 'learning'] as const;
   for (const viewId of viewIds) {
     const provider = new BioWorldWebviewProvider(context.extensionUri, viewId, socketUrl);
     providers.set(viewId, provider);
@@ -89,6 +89,15 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       socket.on('progressionUpdate', (data: unknown) => {
         providers.get('dashboard')?.postMessage({ cmd: 'progressionUpdate', ...toRecord(data) });
+      });
+
+      // Relay learning / knowledge events
+      socket.on('learningUpdate', (data: unknown) => {
+        providers.get('learning')?.postMessage({ cmd: 'learningUpdate', ...toRecord(data) });
+      });
+      socket.on('knowledgeGained', (data: unknown) => {
+        providers.get('learning')?.postMessage({ cmd: 'knowledgeGained', ...toRecord(data) });
+        providers.get('dashboard')?.postMessage({ cmd: 'knowledgeGained', ...toRecord(data) });
       });
 
       // Relay agent tasks to OpenClaw gateway
@@ -272,6 +281,14 @@ export function activate(context: vscode.ExtensionContext): void {
       socket?.emit('joinFaction', { factionId });
       providers.get('labs')?.postMessage({ cmd: 'factionJoined', factionId });
       vscode.window.showInformationMessage(`Joined faction: ${factionName}`);
+    })
+  );
+
+  // Open the Learning Center
+  context.subscriptions.push(
+    vscode.commands.registerCommand('bioworld.openLearning', async () => {
+      await vscode.commands.executeCommand('bioworld.learning.focus');
+      socket?.emit('openLearning');
     })
   );
 }
