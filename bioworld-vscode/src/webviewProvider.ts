@@ -528,8 +528,12 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       // Avatar picker
       document.querySelectorAll('.avatar-opt').forEach(function(opt) {
         opt.addEventListener('click', function() {
-          document.querySelectorAll('.avatar-opt').forEach(function(o) { o.classList.remove('sel'); });
+          document.querySelectorAll('.avatar-opt').forEach(function(o) {
+            o.classList.remove('sel');
+            o.setAttribute('aria-pressed', 'false');
+          });
           opt.classList.add('sel');
+          opt.setAttribute('aria-pressed', 'true');
           const av = document.getElementById('profileAvatar');
           if (av) av.textContent = opt.dataset.avatar || '🔬';
         });
@@ -1109,8 +1113,9 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
     function markArticleStudied(id) {
       if (!id) return;
       sendToHost('studyArticle', { articleId: id });
-      var btn = document.querySelector('.pb[data-article="' + id + '"]');
-      if (btn instanceof HTMLElement) markButtonAsStudied(btn);
+      document.querySelectorAll('.pb[data-article="' + CSS.escape(id) + '"]').forEach(function(btn) {
+        if (btn instanceof HTMLElement) markButtonAsStudied(btn);
+      });
       logKnowledge('📖 Studied: ' + ((ARTICLES[id] && ARTICLES[id].title) || id) + ' (+50 XP)');
       var viewer = document.getElementById('articleViewer');
       if (viewer) viewer.style.display = 'none';
@@ -1121,8 +1126,9 @@ export class BioWorldWebviewProvider implements vscode.WebviewViewProvider {
       var progress = data.progress;
       Object.keys(progress).forEach(function(id) {
         if (progress[id]) {
-          var btn = document.querySelector('.pb[data-article="' + id + '"]');
-          if (btn instanceof HTMLElement) markButtonAsStudied(btn);
+          document.querySelectorAll('.pb[data-article="' + CSS.escape(id) + '"]').forEach(function(btn) {
+            if (btn instanceof HTMLElement) markButtonAsStudied(btn);
+          });
         }
       });
     }
